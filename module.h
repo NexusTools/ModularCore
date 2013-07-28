@@ -5,6 +5,7 @@
 #include <QVariantMap>
 #include <QStringList>
 #include <QLibrary>
+#include <QDebug>
 #include <QHash>
 
 class ModularCore;
@@ -59,27 +60,35 @@ public:
     ModulePlugin* createPlugin(QString type, QVariantList args =QVariantList());
     inline ModulePlugin* createPlugin(int type =0, QVariantList args =QVariantList()) {if(type < 0 || type >= _plugins.size()) throw "Invalid index, no such plugin"; return createPlugin(_plugins.keys().at(type), args);}
 
-    const QMetaObject* pluginMeta(QString type) {if(!_plugins.contains(type)) throw QString("No plugin registered is named `%1`").arg(type); return _plugins.value(type);}
-    inline const QMetaObject* pluginMeta(int type =0) {if(type < 0 || type >= _plugins.size()) throw "Invalid index, no such plugin"; return pluginMeta(_plugins.keys().at(type));}
+    inline const QMetaObject* plugin(int type =0) {if(type < 0 || type >= _plugins.size()) throw "Invalid index, no such plugin"; return plugin(_plugins.keys().at(type));}
+    const QMetaObject* plugin(QString type) {if(!_plugins.contains(type)) throw QString("No plugin registered is named `%1`").arg(type); return _plugins.value(type);}
+
+    template <class T>
+    bool isPluginCompatible(const QMetaObject* pluginMeta) {
+        const QMetaObject* superMeta = pluginMeta;
+        qDebug() << "Checking compatibility" << pluginMeta->className();
+        while(superMeta != &T::staticMetaObject) {
+            superMeta = superMeta->superClass();
+            if(!superMeta)
+                break;
+
+            qDebug() << "Checking super class" << superMeta->className();
+        }
+
+        return superMeta;
+    }
+
+    template <class T>
+    bool isPluginCompatible(QString type) {
+        return isPluginCompatible<T>(plugin(type));
+    }
 
     template <class T>
     const QMetaObject* findCompatiblePlugin() {
         qDebug() << "Searching for plugin compatible with" << T::staticMetaObject.className();
         foreach(const QMetaObject* pluginMeta, _plugins.values()) {
-            const QMetaObject* superMeta = pluginMeta;
-            qDebug() << "Testing" << pluginMeta->className();
-            while(superMeta != &T::staticMetaObject) {
-                superMeta = superMeta->superClass();
-                if(!superMeta)
-                    break;
-
-                qDebug() << "Checking super class" << superMeta->className();
-            }
-
-            if(superMeta) {
-                qDebug() << pluginMeta->className() << "is compatible!";
+            if(isPluginCompatible<T>(pluginMeta))
                 return pluginMeta;
-            }
         }
         return 0;
     }
@@ -88,7 +97,7 @@ public:
     T* createCompatiblePlugin(QVariantList args =QVariantList()) {
         const QMetaObject* pluginMetaObject = findCompatiblePlugin<T>();
         if(pluginMetaObject) {
-            ModulePlugin* instance = createInstance(pluginMetaObject, args);
+            QObject* instance = createInstance(pluginMetaObject, args);
             if(instance) {
                 T* cInstance = (T*)T::staticMetaObject.cast(instance);
                 if(!cInstance) {
@@ -105,7 +114,7 @@ protected:
     void loadDep(QString name, QString type);
     void loadEntryPoints(LoadFlags flags = LooseVerify);
 
-    ModulePlugin* createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
+    QObject *createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
 
 private:
     inline explicit Module(QString name, QString type, QString libraryFile, ModularCore* core) :

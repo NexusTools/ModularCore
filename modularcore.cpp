@@ -2,10 +2,55 @@
 #include "moduleplugin.h"
 #include "module.h"
 
+#include <QDomDocument>
 #include <QFileInfo>
 #include <QDir>
 
 #include <QDebug>
+
+QVariant nodeToVariant(QDomNode el) {
+    if(el.hasAttributes() || el.hasChildNodes()) {
+        QVariantMap map;
+        if(el.attributes().length()) {
+#if LEGACY_QT
+            for(uint i=0; i<el.attributes().length(); i++)
+#else
+            for(int i=0; i<el.attributes().length(); i++)
+#endif
+                map.insert(el.attributes().item(i).nodeName(), nodeToVariant(el.attributes().item(i)));
+
+        } else if(el.nodeName().endsWith('s')) {
+            QVariantList list;
+            QString listNodeName = el.nodeName().mid(0, el.nodeName().length()-1);
+#if LEGACY_QT
+            for(uint i=0; i<el.childNodes().length(); i++) {
+#else
+            for(int i=0; i<el.childNodes().length(); i++) {
+#endif
+                if(el.childNodes().at(i).nodeName() != listNodeName) {
+                    list.clear();
+                    break;
+                }
+                list.append(nodeToVariant(el.childNodes().at(i)));
+            }
+
+            if(!list.isEmpty())
+                return list;
+        }
+
+#if LEGACY_QT
+        for(uint i=0; i<el.childNodes().length(); i++)
+#else
+        for(int i=0; i<el.childNodes().length(); i++)
+#endif
+            map.insert(el.childNodes().at(i).nodeName(), nodeToVariant(el.childNodes().at(i)));
+
+        if(map.size() == 1 && map.contains("#text"))
+            return map.value("#text");
+        return map;
+    } else
+        return el.nodeValue();
+}
 
 Module::Ref ModularCore::loadModule(QString name, QString type) {
     QString path = _types.value(type);
@@ -55,6 +100,7 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
             QFile library(libPath);
             if(library.open(QFile::ReadOnly)) {
                 QVariantMap metaData;
+                Module::List deps;
 
                 int pos;
                 QByteArray buffer;
@@ -80,8 +126,25 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
                             buffer += newData;
                         }
 
-                        qDebug() << buffer;
-                        //metaData = NexusConfig::parse(buffer, NexusConfig::XmlFormat, "CoordinatorLibrary").toMap();
+                        QDomDocument dom;
+                        if(dom.setContent(buffer)) {
+                            QDomNodeList children = dom.childNodes();
+#ifdef LEGACY_QT
+                            for(uint i=0; i<children.length(); i++){
+#else
+                            for(int i=0; i<children.length(); i++){
+#endif
+                                QDomNode node = children.at(i);
+                                if(node.nodeName() == libraryName()) {
+                                    metaData = nodeToVariant(node).toMap();
+                                    if(!metaData.isEmpty()) {
+                                        qDebug() << metaData;
+                                        deps = moduleMetaData(metaData);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                         break;
                     }
                 }
@@ -89,7 +152,8 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
 
                 Module::Ref module(new Module(name, type, libPath, this));
                 module->_self = module.toWeakRef();
-                moduleMetaData(module, metaData);
+                module->_deps = deps;
+                moduleVerify(module);
                 return module;
             } else
                 throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
@@ -99,9 +163,12 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
     return module;
 }
 
-ModulePlugin* Module::createPlugin(QString type, QVariantList) {
-    qDebug() << "Creating plugin of type" << type;
-    return 0;
+ModulePlugin* Module::createPlugin(QString type, QVariantList args) {
+    const QMetaObject* p = plugin(type);
+    if(!isPluginCompatible<ModulePlugin>(p))
+        throw "Object is not a valid ModulePlugin";
+
+    return (ModulePlugin*)createInstance(p, args);
 }
 
 void Module::load(LoadFlags flags) {
@@ -178,7 +245,7 @@ void Module::loadEntryPoints(LoadFlags flags) {
         _core->moduleVerify(_self.toStrongRef());
 }
 
-ModulePlugin* Module::createInstance(const QMetaObject* metaObject, QVariantList args) {
+QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args) {
     QGenericArgument val[10];
     if(args.size() > 10)
         throw "Cannot handle more than 10 arguments";

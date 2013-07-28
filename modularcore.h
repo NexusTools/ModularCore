@@ -37,11 +37,10 @@ protected:
     inline void registerType(QString type, QString path) {_types.insert(type, path);}
 
     // Module Events
-    virtual void moduleMetaData(Module::Ref, QVariantMap) {}
-
     virtual void moduleVerify(Module::Ref) {}
     virtual void moduleLoaded(Module::Ref) {}
     virtual void moduleUnloaded(Module::Ref) {}
+    virtual Module::List moduleMetaData(QVariantMap) {return Module::List();}
 
     // The name of the modules this core works with
     virtual QString libraryName() const{return "GenericModule";}

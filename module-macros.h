@@ -19,7 +19,7 @@
     extern "C" Q_DECL_EXPORT const QStringList ModuleEntryPoint_##Type##_##Class##_Information() {static QStringList info(QStringList() << MODULE_LIB_NAME << VERSION << AUTHORS << "Unknown" << "Unknown"); return info;} \
     extern "C" Q_DECL_EXPORT const ConstructorList ModuleEntryPoint_##Type##_##Class##_Constructors() {static ConstructorList classes(ConstructorList() << &Class::staticMetaObject
 
-#define DeclarePlugin(Plugin)  << &Plugin::staticMetaObject
+#define DeclarePlugin(Plugin) << &Plugin::staticMetaObject
 #define EndModule() ); return classes;}
 
 #endif // MACROS_H
