@@ -13,11 +13,13 @@ QVariant nodeToVariant(QDomNode el) {
         QVariantMap map;
         if(el.attributes().length()) {
 #if LEGACY_QT
-            for(uint i=0; i<el.attributes().length(); i++)
+            for(uint i=0; i<el.attributes().length(); i++) {
 #else
-            for(int i=0; i<el.attributes().length(); i++)
+            for(int i=0; i<el.attributes().length(); i++) {
 #endif
-                map.insert(el.attributes().item(i).nodeName(), nodeToVariant(el.attributes().item(i)));
+                QString value = nodeToVariant(el.attributes().item(i)).toString();
+                map.insert(el.attributes().item(i).nodeName(), value.isEmpty() ? "yes" : value);
+            }
 
         } else if(el.nodeName().endsWith('s')) {
             QVariantList list;
@@ -53,8 +55,8 @@ QVariant nodeToVariant(QDomNode el) {
 }
 
 Module::Ref ModularCore::loadModule(QString name, QString type) {
-    QString path = _types.value(type);
-    if(path.isEmpty())
+    TypeInfo typeInfo = _types.value(type);
+    if(typeInfo.first.isEmpty())
         throw QString("No type named `%1` registered.").arg(type);
 
     Module::Ref module = _modules.value(type).value(name).toStrongRef();
@@ -66,7 +68,7 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
 #ifdef IDE_MODE
                 basePath +
 #endif
-                path + '/' +
+                typeInfo.first + '/' +
 #ifdef IDE_MODE
                 name + '/' +
 #ifdef Q_OS_WIN
@@ -140,6 +142,11 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
                                     if(!metaData.isEmpty()) {
                                         qDebug() << metaData;
                                         deps = moduleMetaData(metaData);
+                                        if(!typeInfo.second.isEmpty()) {
+                                            qDebug() << "Loading dependancies..." << typeInfo.second;
+                                            foreach(QVariant dep, metaData.value(typeInfo.second).toList())
+                                                deps << loadModuleByDefinition(dep.toMap());
+                                        }
                                         break;
                                     }
                                 }
@@ -159,6 +166,32 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
         }
     }
 
+    return module;
+}
+
+inline bool isBool(QString s, bool emptyTrue =true) {
+    if(s.isEmpty())
+        return emptyTrue;
+    return (s = s.toLower()) == "yes" || s == "no";
+}
+
+Module::Ref ModularCore::loadModuleByDefinition(QVariantMap def) {
+    Module::Ref module;
+    if(!isBool(def.value("required").toString()))
+        try {
+            module = loadModuleByDefinition(def);
+        } catch(...) {}
+    else if(def.contains("library")) {
+        QString libPath = def.value("library").toString();
+        module = _knownModules.value(libPath).toStrongRef();
+        if(!module) {
+            module = Module::Ref(new Module(def.value("class", "Unknown").toString(), def.value("type", "Library").toString(), libPath, this));
+            _knownModules.insert(libPath, module);
+        }
+    } else if(def.contains("class"))
+        module = loadModule(def.value("class").toString(), def.value("type", "Module").toString());
+    else
+        throw "Expected either library or class attribute.";
     return module;
 }
 

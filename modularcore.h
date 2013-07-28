@@ -9,7 +9,8 @@
 class MODULARCORESHARED_EXPORT ModularCore
 {
     typedef QHash<QString, Module::WeakMap> LoadedModules;
-    typedef QHash<QString, QString> TypePaths;
+    typedef QPair<QString, QString> TypeInfo;
+    typedef QHash<QString, TypeInfo> Types;
 
     friend class Module;
 public:
@@ -32,9 +33,10 @@ protected:
 
     // Module Controls
     Module::Ref loadModule(QString name, QString type);
+    Module::Ref loadModuleByDefinition(QVariantMap def);
     void unloadModule(QString name, QString type);
 
-    inline void registerType(QString type, QString path) {_types.insert(type, path);}
+    inline void registerType(QString type, QString path, QString depNode =QString()) {_types.insert(type, TypeInfo(path, depNode));}
 
     // Module Events
     virtual void moduleVerify(Module::Ref) {}
@@ -47,8 +49,8 @@ protected:
     virtual QString libraryName() const{return "GenericModule";}
 
 private:
+    Types _types;
     QString _name;
-    TypePaths _types;
     QStringList _infoKeys;
     LoadedModules _modules;
     static Module::WeakMap _knownModules;
