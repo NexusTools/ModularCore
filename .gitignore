@@ -1,0 +1,27 @@
+# Qt Build Files
+*.pro.user
+Makefile
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Editor Backups
+*~
+
+# Object Files
+*.o
+
+# Libraries
+*.lib
+*.a
+
+# Shared Objects
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app

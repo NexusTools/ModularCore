@@ -1,6 +1,4 @@
 #include "modularcore.h"
+#include "module.h"
 
 
-ModularCore::ModularCore()
-{
-}

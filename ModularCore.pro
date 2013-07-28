@@ -11,10 +11,15 @@ TEMPLATE = lib
 
 DEFINES += MODULARCORE_LIBRARY
 
-SOURCES += modularcore.cpp
+include(version.pri)
 
-HEADERS += modularcore.h\
-        modularcore_global.h
+SOURCES += \
+    modularcore.cpp
+
+HEADERS += modularcore.h \
+    global.h \
+    macros.h \
+    module.h
 
 unix:!symbian {
     maemo5 {
