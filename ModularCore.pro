@@ -4,7 +4,12 @@
 #
 #-------------------------------------------------
 
+QT       += xml
 QT       -= gui
+
+!greaterThan(QT_MAJOR_VERSION, 4) {
+	DEFINES += LEGACY_QT
+}
 
 TARGET = ModularCore
 TEMPLATE = lib
@@ -13,19 +18,13 @@ DEFINES += MODULARCORE_LIBRARY
 
 include(version.pri)
 
+CONFIG(debug, debug|release): DEFINES += IDE_MODE DEBUG_MODE
+
 SOURCES += \
     modularcore.cpp
 
 HEADERS += modularcore.h \
     global.h \
-    macros.h \
-    module.h
-
-unix:!symbian {
-    maemo5 {
-        target.path = /opt/usr/lib
-    } else {
-        target.path = /usr/lib
-    }
-    INSTALLS += target
-}
+    module.h \
+    moduleplugin.h \
+    module-macros.h
