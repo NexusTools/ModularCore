@@ -213,6 +213,7 @@ void Module::loadEntryPoints(LoadFlags flags) {
             qDebug() << _info;
             if(flags.testFlag(LooseVerify) |
                     flags.testFlag(StrictVerify)) {
+                qDebug() << "Verifying information strings...";
                 if(_info.isEmpty())
                     throw "Information entry point returned no data.";
                 if(_core) {
@@ -228,8 +229,24 @@ void Module::loadEntryPoints(LoadFlags flags) {
                 } else if(!flags.testFlag(StrictVerify))
                     throw "Strict verification requires the module to have a valid ModularCore associated.";
             }
+
+            qDebug() << "Parsing information strings...";
+            static QRegExp versionReg("(\\d+)\\.(\\d+)(\\.(\\d+))?( \\((.+)\\))?");
+            if(versionReg.exactMatch(version())) {
+                _versionParts[0] = versionReg.cap(1).toInt();
+                _versionParts[1] = versionReg.cap(2).toInt();
+                if(!versionReg.cap(4).isEmpty())
+                    _versionParts[2] = versionReg.cap(4).toInt();
+                if(!versionReg.cap(6).isEmpty())
+                    _branch = versionReg.cap(6);
+            }
+
+            if(_core && _self)
+                _core->moduleInformation(_self.toStrongRef());
         } else if(flags.testFlag(StrictVerify))
             throw "Missing information entry point.";
+        else
+            _info = QStringList() << "GenericLibrary" << "Unknown" << "Unknown" << "Unknown" << "Unknown";
     }
     symbol = QString("%1Constructors").arg(_entryBaseName);
     {

@@ -23,6 +23,12 @@ class Module
 
     friend class ModularCore;
 public:
+    struct Author {
+        QString name;
+        QString email;
+        QStringList altNames;
+    };
+
     enum LoadFlag {
         NoVerify = 0x0,
         LooseVerify = 0x1,
@@ -43,16 +49,24 @@ public:
 
     inline QString name() const{return _name;}
     inline QString type() const{return _type;}
-    inline QString version() const{return _version;}
-    inline QStringList authors() const{return _authorList;}
-    inline QString authorsString() const{return _authors;}
-    inline bool loaded() const{return _lib.isLoaded();}
+    inline QString website() const{return _info.isEmpty() ? "Unknown" : _info.at(3);}
+    inline QString source() const{return _info.isEmpty() ? "Unknown" : _info.at(4);}
+    inline QString sourceBranch() const{return _branch;}
+
+    inline QString version() const{return _info.isEmpty() ? "Unknown" : _info.at(1);}
+    inline quint16 verMajor() const{return _versionParts[0];}
+    inline quint16 verMinor() const{return _versionParts[1];}
+    inline quint16 verPat() const{return _versionParts[2];}
+
+    inline QVector<Author> authors() const{return _authorList;}
+    inline QString authorsString() const{return _info.isEmpty() ? "Unknown" : _info.at(2);}
 
     inline QString libraryFile() const{return _lib.fileName();}
     inline QVariantMap metaData() const{return _meta;}
 
     void unload();
     void load(LoadFlags flags = LooseVerify);
+    inline bool loaded() const{return _lib.isLoaded();}
     inline void reload(LoadFlags flags = LooseVerify) {unload();load(flags);}
 
     // Plugins
@@ -120,16 +134,16 @@ protected:
 private:
     inline explicit Module(QString name, QString type, QString libraryFile, ModularCore* core) :
         _name(name), _type(type), _entryBaseName(QString("ModuleEntryPoint_%1_%2_").arg(type, name)),
-        _core(core), _lib(libraryFile) {}
+        _branch("unknown"), _core(core), _lib(libraryFile) {*_versionParts = 0;}
 
     const QString _name;
     const QString _type;
     const QString _entryBaseName;
 
-    QString _authors;
-    QString _version;
     QStringList _info;
-    QStringList _authorList;
+    QVector<Author> _authorList;
+    quint16 _versionParts[3];
+    QString _branch;
 
     List _deps;
     Weak _self;
