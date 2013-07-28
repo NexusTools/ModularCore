@@ -150,11 +150,10 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
                 }
                 library.close();
 
-                Module::Ref module(new Module(name, type, libPath, this));
+                module = Module::Ref(new Module(name, type, libPath, this));
                 module->_self = module.toWeakRef();
                 module->_deps = deps;
                 moduleVerify(module);
-                return module;
             } else
                 throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
         }
@@ -217,7 +216,8 @@ void Module::loadEntryPoints(LoadFlags flags) {
                 if(_info.isEmpty())
                     throw "Information entry point returned no data.";
                 if(_core) {
-                    if(_info.first() != _core->libraryName())
+                    if(!flags.testFlag(IgnoreLibraryName) &&
+                            _info.first() != _core->libraryName())
                         throw "Library name mismatch.";
                     if(flags.testFlag(LooseVerify) &&
                             _info.size() < _core->_infoKeys.size())
@@ -225,7 +225,8 @@ void Module::loadEntryPoints(LoadFlags flags) {
                     else if(flags.testFlag(StrictVerify) &&
                                 _info.size() != _core->_infoKeys.size())
                         throw "Number of information entries does not match known information keys.";
-                }
+                } else if(!flags.testFlag(StrictVerify))
+                    throw "Strict verification requires the module to have a valid ModularCore associated.";
             }
         } else if(flags.testFlag(StrictVerify))
             throw "Missing information entry point.";

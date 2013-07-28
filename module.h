@@ -27,7 +27,8 @@ public:
         NoVerify = 0x0,
         LooseVerify = 0x1,
         StrictVerify = 0x2,
-        ExportSymbols = 0x4
+        ExportSymbols = 0x4,
+        IgnoreLibraryName = 0x8
     };
     Q_DECLARE_FLAGS(LoadFlags, LoadFlag)
 

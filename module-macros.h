@@ -2,7 +2,6 @@
 #define MACROS_H
 
 #include <project-version.h>
-
 #include <module.h>
 
 #ifndef MODULE_LIB_NAME
