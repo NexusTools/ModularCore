@@ -1,4 +1,5 @@
 #include "modularcore.h"
+#include "moduleplugin.h"
 #include "module.h"
 
 #include <QFileInfo>
@@ -98,7 +99,8 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
     return module;
 }
 
-ModulePlugin* Module::createPlugin(QString, QVariantList) {
+ModulePlugin* Module::createPlugin(QString type, QVariantList) {
+    qDebug() << "Creating plugin of type" << type;
     return 0;
 }
 
@@ -174,6 +176,32 @@ void Module::loadEntryPoints(LoadFlags flags) {
 
     if(_core && _self)
         _core->moduleVerify(_self.toStrongRef());
+}
+
+ModulePlugin* Module::createInstance(const QMetaObject* metaObject, QVariantList args) {
+    QGenericArgument val[10];
+    if(args.size() > 10)
+        throw "Cannot handle more than 10 arguments";
+
+    for(int i=0; i<args.size(); i++)
+        val[i] = QGenericArgument(args[i].typeName(), (const void*)args[i].data());
+
+    if(!metaObject->constructorCount())
+        throw "No invokable constructors.";
+
+    qDebug() << "Constructing" << metaObject->className() << args;
+    QObject* obj = metaObject->newInstance(val[0], val[1], val[2], val[3], val[4],
+                                            val[5], val[6], val[7], val[8], val[9]);
+    qDebug() << obj;
+    if(obj) {
+        ModulePlugin* module = (ModulePlugin*)ModulePlugin::staticMetaObject.cast(obj);
+        if(!module) {
+            delete obj;
+            throw "Returned object is not a valid ModulePlugin";
+        }
+        return module;
+    }
+    return 0;
 }
 
 Module::WeakMap ModularCore::_knownModules;

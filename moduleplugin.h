@@ -10,6 +10,7 @@ class ModulePlugin : public QObject
 public:
     inline explicit ModulePlugin() {}
 
+    inline QString type() const{return _type;}
     inline Module::Ref provider() const{return _provider;}
 
 private:
