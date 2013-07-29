@@ -216,8 +216,18 @@ void Module::load(LoadFlags flags) {
     }
 
     _lib.setLoadHints(hints);
-    if(!_lib.load())
+    if(!_lib.load()) {
+#ifdef Q_OS_UNIX
+        static QRegExp missingDep("Cannot load library .+: \\((.+): cannot open shared object file: (.+)\\)\\s*");
+        if(missingDep.exactMatch(_lib.errorString())) {
+            if(missingDep.cap(2) == "No such file or directory")
+                throw QString("Required library `%1` missing, install it and try again.").arg(missingDep.cap(1));
+            else
+                throw QString("Dependancy failed to load: `%1`: %2.").arg(missingDep.cap(1)).arg(missingDep.cap(2));
+        }
+#endif
         throw _lib.errorString();
+    }
 
     loadEntryPoints(flags);
 
