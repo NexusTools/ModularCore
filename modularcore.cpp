@@ -2,6 +2,7 @@
 #include "moduleplugin.h"
 #include "module.h"
 
+#include <QRegularExpression>
 #include <QDomDocument>
 #include <QFileInfo>
 #include <QDir>
@@ -284,6 +285,29 @@ void Module::loadEntryPoints(LoadFlags flags) {
                     _branch = versionReg.cap(6);
             }
 
+            qDebug() << authorsString();
+            QRegularExpression expr("([^<]+?)(<(.+?)>)[\\s,]?");
+            QRegularExpressionMatchIterator iterator = expr.globalMatch(authorsString());
+            QHash<QString, AuthorRef> _authors;
+            while(iterator.hasNext()) {
+                QRegularExpressionMatch match = iterator.next();
+                QString email = match.captured(3);
+                if(email.isEmpty())
+                    email = match.captured(1);
+                AuthorRef author = _authors.value(email);
+                if(!author) {
+                    author = AuthorRef(new Author());
+                    _authors.insert(email, author);
+                    _authorList << author;
+                }
+                if(!author->name.isEmpty())
+                    author->altNames << author->name;
+                author->name = match.captured(1);
+                author->email = email;
+            }
+            foreach(AuthorRef ref, _authorList)
+                qDebug() << ref->name << ref->email << ref->altNames;
+
             if(_core && _self)
                 _core->moduleInformation(_self.toStrongRef());
         } else if(flags.testFlag(StrictVerify))
@@ -308,8 +332,8 @@ void Module::loadEntryPoints(LoadFlags flags) {
 
 QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args) {
     QGenericArgument val[10];
-    if(args.size() > 10)
-        throw "Cannot handle more than 10 arguments";
+    if(args.size() > 9)
+        throw "Cannot handle more than 9 arguments";
 
     for(int i=0; i<args.size(); i++)
         val[i] = QGenericArgument(args[i].typeName(), (const void*)args[i].data());
@@ -322,12 +346,13 @@ QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args
                                             val[5], val[6], val[7], val[8], val[9]);
     qDebug() << obj;
     if(obj) {
-        ModulePlugin* module = (ModulePlugin*)ModulePlugin::staticMetaObject.cast(obj);
-        if(!module) {
+        ModulePlugin* plugin = (ModulePlugin*)ModulePlugin::staticMetaObject.cast(obj);
+        if(!plugin) {
             delete obj;
             throw "Returned object is not a valid ModulePlugin";
         }
-        return module;
+        plugin->_provider = _self.toStrongRef();
+        return plugin;
     }
     return 0;
 }

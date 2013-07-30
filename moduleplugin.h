@@ -7,14 +7,13 @@
 
 class ModulePlugin : public QObject
 {
+    friend class Module;
 public:
     inline explicit ModulePlugin() {}
 
-    inline QString type() const{return _type;}
     inline Module::Ref provider() const{return _provider;}
 
 private:
-    QString _type;
     Module::Ref _provider;
 };
 

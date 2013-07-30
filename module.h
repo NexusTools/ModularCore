@@ -29,6 +29,9 @@ public:
         QStringList altNames;
     };
 
+    typedef QSharedPointer<Author> AuthorRef;
+    typedef QList<AuthorRef> AuthorList;
+
     enum LoadFlag {
         NoVerify = 0x0,
         LooseVerify = 0x1,
@@ -58,11 +61,12 @@ public:
     inline quint16 verMinor() const{return _versionParts[1];}
     inline quint16 verPat() const{return _versionParts[2];}
 
-    inline QVector<Author> authors() const{return _authorList;}
+    inline AuthorList authors() const{return _authorList;}
     inline QString authorsString() const{return _info.isEmpty() ? "Unknown" : _info.at(2);}
 
-    inline QString libraryFile() const{return _lib.fileName();}
+    inline ModularCore* core() const{return _core;}
     inline QVariantMap metaData() const{return _meta;}
+    inline QString libraryFile() const{return _lib.fileName();}
 
     void unload();
     void load(LoadFlags flags = LooseVerify);
@@ -134,14 +138,14 @@ protected:
 private:
     inline explicit Module(QString name, QString type, QString libraryFile, ModularCore* core) :
         _name(name), _type(type), _entryBaseName(QString("ModuleEntryPoint_%1_%2_").arg(type, name)),
-        _branch("unknown"), _core(core), _lib(libraryFile) {*_versionParts = 0;}
+        _branch("unknown"), _lib(libraryFile) {*_versionParts=0;_core=core;}
 
     const QString _name;
     const QString _type;
     const QString _entryBaseName;
 
     QStringList _info;
-    QVector<Author> _authorList;
+    AuthorList _authorList;
     quint16 _versionParts[3];
     QString _branch;
 

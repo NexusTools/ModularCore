@@ -24,7 +24,7 @@ public:
         return modules;
     }
 
-    Module::Ref module(QString name, QString type) {
+    Module::Ref module(QString name, QString type ="Module") {
         return _modules.value(type).value(name).toStrongRef();
     }
 
