@@ -17,6 +17,10 @@ typedef QList<const QMetaObject*> ConstructorList;
 
 class Module
 {
+
+    typedef QMap<quint64, QVariant> DataIndexList;
+    typedef QMap<QVariant::Type, DataIndexList> DataMap;
+
     typedef QHash<QString, const QMetaObject*> PluginMap;
 
     // Entry Points
@@ -25,6 +29,7 @@ class Module
 
     // Preferred Method
     typedef ModuleEntryList (*EntryList)();
+
 
     friend class ModularCore;
 public:
@@ -178,6 +183,7 @@ private:
     QVariantMap _meta;
     PluginMap _plugins;
     ModularCore* _core;
+    DataMap _data;
 };
 
 #endif // MODULE_H

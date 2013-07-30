@@ -15,11 +15,12 @@
     private:
 
 
-#define ModuleString(String) ModuleEntry(StringType, (const void*)String)
+#define ModuleString(String, Type) ModuleEntry(Type##StringType, (const void*)String)
 #define ModuleMetaObject(MetaObject) ModuleEntry(MetaObjectType, (const void*)MetaObject)
 
-#define DeclareString(String) << ModuleString(String)
+#define DeclareString(String) << ModuleString(String, Info)
 #define DeclarePlugin(Plugin) << ModuleMetaObject(&Plugin::staticMetaObject)
+#define DeclareData(Type, ID, Data) << ModuleEntry(DataEntryType, ModuleDataEntry<Type, ID>(Data))
 
 #define BeginModuleNamespace(Class, Type) \
     extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Class##_EntryList() {static ModuleEntryList entries(ModuleEntryList() DeclareString(MODULE_LIB_NAME) DeclareString(VERSION) DeclareString(AUTHORS) DeclareString("Unknown") DeclareString("Unknown")

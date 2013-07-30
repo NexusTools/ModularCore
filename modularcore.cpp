@@ -310,9 +310,11 @@ void Module::processInfoStrings(LoadFlags flags) {
 }
 
 void Module::processEntries(const ModuleEntryList &entries) {
+    qDebug() << "Processing module entries...";
+
     foreach(ModuleEntry entry, entries) {
         switch(entry.first) {
-            case StringType:
+            case InfoStringType:
                 _info << QString::fromLocal8Bit((const char*)entry.second);
                 continue;
 
@@ -323,14 +325,27 @@ void Module::processEntries(const ModuleEntryList &entries) {
                 continue;
             }
 
+            case DataEntryType:
+            {
+                ModuleData* data = (ModuleData*)entry.second;
+
+                DataMap::Iterator entry = _data.find(data->second.type());
+                if(entry == _data.end())
+                    entry = _data.insert(data->second.type(), DataIndexList());
+
+                entry.value().insert(data->first, data->second);
+                continue;
+            }
+
             default:
                 throw QString("Unknown entry type `%1`").arg(entry.first);
 
         }
-
-        processInfoStrings(_loadFlags);
-        qDebug() << "Plugins detected" << _plugins.keys();
     }
+
+    processInfoStrings(_loadFlags);
+    qDebug() << "Data detected" << _data;
+    qDebug() << "Plugins detected" << _plugins.keys();
 }
 
 void ModularCore::moduleEntries(const Module::Ref module, const ModuleEntryList &entries) {
@@ -342,37 +357,48 @@ void Module::loadEntryPoints(LoadFlags flags) {
 
     QString symbol = QString("%1EntryList").arg(_entryBaseName);
     {
-        qDebug() << "Resolving" << symbol;
+        QDebug debug(QtDebugMsg);
+        debug << "Resolving" << symbol << "...";
         EntryList entryList = (EntryList)_lib.resolve(symbol.toLocal8Bit().data());
         if(entryList) {
             ModuleEntryList entries = entryList();
+            debug << "Found!";
+
             if(_core)
                 _core->moduleEntries(this->pointer(), entries);
+            else
+                processEntries(entries);
 
             return;
-        }
+        } else
+            debug << "Not found.";
     }
     symbol = QString("%1Information").arg(_entryBaseName);
     {
-        qDebug() << "Resolving" << symbol;
+        QDebug debug(QtDebugMsg);
+        debug << "Resolving" << symbol << "...";
         Information info = (Information)_lib.resolve(symbol.toLocal8Bit().data());
         if(info) {
             _info = info();
             processInfoStrings(flags);
         } else if(flags.testFlag(StrictVerify))
             throw "Missing information and entrylist entry points.";
-        else
+        else {
             _info = QStringList() << "GenericLibrary" << "Unknown" << "Unknown" << "Unknown" << "Unknown";
+            debug << "Not found.";
+        }
     }
     symbol = QString("%1Constructors").arg(_entryBaseName);
     {
-        qDebug() << "Resolving" << symbol;
+        QDebug debug(QtDebugMsg);
+        debug << "Resolving" << symbol << "...";
         Constructors constructors = (Constructors)_lib.resolve(symbol.toLocal8Bit().data());
         if(constructors) {
             foreach(const QMetaObject* metaObject, constructors())
                 _plugins.insert(metaObject->className(), metaObject);
             qDebug() << "Plugins detected" << _plugins.keys();
-        }
+        } else
+            debug << "Not found.";
     }
 
     if(_core && _self)
