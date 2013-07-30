@@ -2,7 +2,7 @@
 #define MODULETYPES_H
 
 #include <QVariant>
-#include <QList>
+#include <QVector>
 #include <QPair>
 
 enum ModuleEntryType {
@@ -15,8 +15,8 @@ enum ModuleEntryType {
 };
 
 typedef QPair<ModuleEntryType, const void*> ModuleEntry;
+typedef QVector<ModuleEntry> ModuleEntryList;
 typedef QPair<quint64, QVariant> ModuleData;
-typedef QList<ModuleEntry> ModuleEntryList;
 
 template <class T, quint64 id>
 inline const void* ModuleDataEntry(T def =T()) {
