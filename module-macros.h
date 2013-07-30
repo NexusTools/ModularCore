@@ -2,7 +2,7 @@
 #define MACROS_H
 
 #include <project-version.h>
-#include <module.h>
+#include "module-types.h"
 
 #ifndef MODULE_LIB_NAME
 #warning "MODULE_LIB_NAME is not defined, using GenericLibrary"
@@ -14,13 +14,17 @@
     \
     private:
 
+
+#define ModuleString(String) ModuleEntry(StringType, (const void*)String)
+#define ModuleMetaObject(MetaObject) ModuleEntry(MetaObjectType, (const void*)MetaObject)
+
+#define DeclareString(String) << ModuleString(String)
+#define DeclarePlugin(Plugin) << ModuleMetaObject(&Plugin::staticMetaObject)
+
 #define BeginModuleNamespace(Class, Type) \
-    extern "C" Q_DECL_EXPORT const QStringList ModuleEntryPoint_##Type##_##Class##_Information() {static QStringList info(QStringList() << MODULE_LIB_NAME << VERSION << AUTHORS << "Unknown" << "Unknown"); return info;} \
-    extern "C" Q_DECL_EXPORT const ConstructorList ModuleEntryPoint_##Type##_##Class##_Constructors() {static ConstructorList classes(ConstructorList()
+    extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Class##_EntryList() {static ModuleEntryList entries(ModuleEntryList() DeclareString(MODULE_LIB_NAME) DeclareString(VERSION) DeclareString(AUTHORS) DeclareString("Unknown") DeclareString("Unknown")
 
-#define BeginModule(Class, Type) BeginModuleNamespace(Class, Type) << &Class::staticMetaObject
-
-#define DeclarePlugin(Plugin) << &Plugin::staticMetaObject
-#define FinishModule() ); return classes;}
+#define BeginModule(Class, Type) BeginModuleNamespace(Class, Type) DeclarePlugin(Class)
+#define FinishModule() ); return entries;}
 
 #endif // MACROS_H

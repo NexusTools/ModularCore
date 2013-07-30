@@ -27,4 +27,5 @@ HEADERS += modularcore.h \
     global.h \
     module.h \
     moduleplugin.h \
-    module-macros.h
+    module-macros.h \
+    module-types.h

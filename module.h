@@ -8,6 +8,8 @@
 #include <QDebug>
 #include <QHash>
 
+#include "module-types.h"
+
 class ModularCore;
 class ModulePlugin;
 
@@ -20,6 +22,9 @@ class Module
     // Entry Points
     typedef ConstructorList (*Constructors)();
     typedef QStringList (*Information)();
+
+    // Preferred Method
+    typedef ModuleEntryList (*EntryList)();
 
     friend class ModularCore;
 public:
@@ -132,6 +137,7 @@ public:
 protected:
     void loadDep(QString name, QString type);
     void loadEntryPoints(LoadFlags flags = LooseVerify);
+    void processInfoStrings(LoadFlags flags);
 
     QObject *createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
 

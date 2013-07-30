@@ -247,71 +247,106 @@ void Module::unload() {
         _core->moduleUnloaded(_self.toStrongRef());
 }
 
+void Module::processInfoStrings(LoadFlags flags) {
+    qDebug() << _info;
+    if(flags.testFlag(LooseVerify) |
+            flags.testFlag(StrictVerify)) {
+        qDebug() << "Verifying information strings...";
+        if(_info.isEmpty())
+            throw "Information entry point returned no data.";
+        if(_core) {
+            if(!flags.testFlag(IgnoreLibraryName) &&
+                    _info.first() != _core->libraryName())
+                throw "Library name mismatch.";
+            if(flags.testFlag(LooseVerify) &&
+                    _info.size() < _core->_infoKeys.size())
+                throw "Number of information entries is less than known information keys.";
+            else if(flags.testFlag(StrictVerify) &&
+                        _info.size() != _core->_infoKeys.size())
+                throw "Number of information entries does not match known information keys.";
+        } else if(!flags.testFlag(StrictVerify))
+            throw "Strict verification requires the module to have a valid ModularCore associated.";
+    }
+
+    qDebug() << "Parsing information strings...";
+    static QRegExp versionReg("(\\d+)\\.(\\d+)(\\.(\\d+))?( \\((.+)\\))?");
+    if(versionReg.exactMatch(version())) {
+        _versionParts[0] = versionReg.cap(1).toInt();
+        _versionParts[1] = versionReg.cap(2).toInt();
+        if(!versionReg.cap(4).isEmpty())
+            _versionParts[2] = versionReg.cap(4).toInt();
+        if(!versionReg.cap(6).isEmpty())
+            _branch = versionReg.cap(6);
+    }
+
+    qDebug() << authorsString();
+    QRegularExpression expr("([^<]+?)(<(.+?)>)[\\s,]?");
+    QRegularExpressionMatchIterator iterator = expr.globalMatch(authorsString());
+    QHash<QString, AuthorRef> _authors;
+    while(iterator.hasNext()) {
+        QRegularExpressionMatch match = iterator.next();
+        QString email = match.captured(3);
+        if(email.isEmpty())
+            email = match.captured(1);
+        AuthorRef author = _authors.value(email);
+        if(!author) {
+            author = AuthorRef(new Author());
+            _authors.insert(email, author);
+            _authorList << author;
+        }
+        if(!author->name.isEmpty())
+            author->altNames << author->name;
+        author->name = match.captured(1);
+        author->email = email;
+    }
+    foreach(AuthorRef ref, _authorList)
+        qDebug() << ref->name << ref->email << ref->altNames;
+
+    if(_core && _self)
+        _core->moduleInformation(_self.toStrongRef());
+}
+
 void Module::loadEntryPoints(LoadFlags flags) {
-    QString symbol = QString("%1Information").arg(_entryBaseName);
+    QString symbol = QString("%1EntryList").arg(_entryBaseName);
+    {
+        qDebug() << "Resolving" << symbol;
+        EntryList entryList = (EntryList)_lib.resolve(symbol.toLocal8Bit().data());
+        if(entryList) {
+            ModuleEntryList entries = entryList();
+            foreach(ModuleEntry entry, entries) {
+                switch(entry.first) {
+                    case StringType:
+                        _info << QString::fromLocal8Bit((const char*)entry.second);
+                        continue;
+
+                    case MetaObjectType:
+                    {
+                        const QMetaObject* metaObject = (const QMetaObject*)entry.second;
+                        _plugins.insert(metaObject->className(), metaObject);
+                        continue;
+                    }
+
+                    default:
+                        throw QString("Unknown entry type `%1`").arg(entry.first);
+
+                }
+
+                processInfoStrings(flags);
+                qDebug() << "Plugins detected" << _plugins.keys();
+            }
+
+            return;
+        }
+    }
+    symbol = QString("%1Information").arg(_entryBaseName);
     {
         qDebug() << "Resolving" << symbol;
         Information info = (Information)_lib.resolve(symbol.toLocal8Bit().data());
         if(info) {
             _info = info();
-            qDebug() << _info;
-            if(flags.testFlag(LooseVerify) |
-                    flags.testFlag(StrictVerify)) {
-                qDebug() << "Verifying information strings...";
-                if(_info.isEmpty())
-                    throw "Information entry point returned no data.";
-                if(_core) {
-                    if(!flags.testFlag(IgnoreLibraryName) &&
-                            _info.first() != _core->libraryName())
-                        throw "Library name mismatch.";
-                    if(flags.testFlag(LooseVerify) &&
-                            _info.size() < _core->_infoKeys.size())
-                        throw "Number of information entries is less than known information keys.";
-                    else if(flags.testFlag(StrictVerify) &&
-                                _info.size() != _core->_infoKeys.size())
-                        throw "Number of information entries does not match known information keys.";
-                } else if(!flags.testFlag(StrictVerify))
-                    throw "Strict verification requires the module to have a valid ModularCore associated.";
-            }
-
-            qDebug() << "Parsing information strings...";
-            static QRegExp versionReg("(\\d+)\\.(\\d+)(\\.(\\d+))?( \\((.+)\\))?");
-            if(versionReg.exactMatch(version())) {
-                _versionParts[0] = versionReg.cap(1).toInt();
-                _versionParts[1] = versionReg.cap(2).toInt();
-                if(!versionReg.cap(4).isEmpty())
-                    _versionParts[2] = versionReg.cap(4).toInt();
-                if(!versionReg.cap(6).isEmpty())
-                    _branch = versionReg.cap(6);
-            }
-
-            qDebug() << authorsString();
-            QRegularExpression expr("([^<]+?)(<(.+?)>)[\\s,]?");
-            QRegularExpressionMatchIterator iterator = expr.globalMatch(authorsString());
-            QHash<QString, AuthorRef> _authors;
-            while(iterator.hasNext()) {
-                QRegularExpressionMatch match = iterator.next();
-                QString email = match.captured(3);
-                if(email.isEmpty())
-                    email = match.captured(1);
-                AuthorRef author = _authors.value(email);
-                if(!author) {
-                    author = AuthorRef(new Author());
-                    _authors.insert(email, author);
-                    _authorList << author;
-                }
-                if(!author->name.isEmpty())
-                    author->altNames << author->name;
-                author->name = match.captured(1);
-                author->email = email;
-            }
-            foreach(AuthorRef ref, _authorList)
-                qDebug() << ref->name << ref->email << ref->altNames;
-
-            if(_core && _self)
-                _core->moduleInformation(_self.toStrongRef());
+            processInfoStrings(flags);
         } else if(flags.testFlag(StrictVerify))
-            throw "Missing information entry point.";
+            throw "Missing information and entrylist entry points.";
         else
             _info = QStringList() << "GenericLibrary" << "Unknown" << "Unknown" << "Unknown" << "Unknown";
     }
