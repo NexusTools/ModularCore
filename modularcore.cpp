@@ -2,7 +2,9 @@
 #include "moduleplugin.h"
 #include "module.h"
 
+#ifndef LEGACY_QT
 #include <QRegularExpression>
+#endif
 #include <QDomDocument>
 #include <QFileInfo>
 #include <QDir>
@@ -158,9 +160,7 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
                 }
                 library.close();
 
-                module = Module::Ref(new Module(name, type, libPath, this));
-                module->_self = module.toWeakRef();
-                module->_deps = deps;
+                module = Module::create(name, type, deps, libPath, this);
                 moduleVerify(module);
             } else
                 throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
@@ -186,7 +186,7 @@ Module::Ref ModularCore::loadModuleByDefinition(QVariantMap def) {
         QString libPath = def.value("library").toString();
         module = _knownModules.value(libPath).toStrongRef();
         if(!module) {
-            module = Module::Ref(new Module(def.value("class", "Unknown").toString(), def.value("type", "Library").toString(), libPath, this));
+            module = Module::create(def.value("class", "Unknown").toString(), def.value("type", "Library").toString(), libPath, this);
             _knownModules.insert(libPath, module);
         }
     } else if(def.contains("class"))
@@ -280,9 +280,11 @@ void Module::processInfoStrings(LoadFlags flags) {
     }
 
     qDebug() << authorsString();
+    QHash<QString, AuthorRef> _authors;
+#ifdef LEGACY_QT
+#else
     QRegularExpression expr("([^<]+?)(<(.+?)>)[\\s,]?");
     QRegularExpressionMatchIterator iterator = expr.globalMatch(authorsString());
-    QHash<QString, AuthorRef> _authors;
     while(iterator.hasNext()) {
         QRegularExpressionMatch match = iterator.next();
         QString email = match.captured(3);
@@ -299,6 +301,7 @@ void Module::processInfoStrings(LoadFlags flags) {
         author->name = match.captured(1);
         author->email = email;
     }
+#endif
     foreach(AuthorRef ref, _authorList)
         qDebug() << ref->name << ref->email << ref->altNames;
 
@@ -306,34 +309,45 @@ void Module::processInfoStrings(LoadFlags flags) {
         _core->moduleInformation(_self.toStrongRef());
 }
 
+void Module::processEntries(const ModuleEntryList &entries) {
+    foreach(ModuleEntry entry, entries) {
+        switch(entry.first) {
+            case StringType:
+                _info << QString::fromLocal8Bit((const char*)entry.second);
+                continue;
+
+            case MetaObjectType:
+            {
+                const QMetaObject* metaObject = (const QMetaObject*)entry.second;
+                _plugins.insert(metaObject->className(), metaObject);
+                continue;
+            }
+
+            default:
+                throw QString("Unknown entry type `%1`").arg(entry.first);
+
+        }
+
+        processInfoStrings(_loadFlags);
+        qDebug() << "Plugins detected" << _plugins.keys();
+    }
+}
+
+void ModularCore::moduleEntries(const Module::Ref module, const ModuleEntryList &entries) {
+    module->processEntries(entries);
+}
+
 void Module::loadEntryPoints(LoadFlags flags) {
+    _loadFlags = flags;
+
     QString symbol = QString("%1EntryList").arg(_entryBaseName);
     {
         qDebug() << "Resolving" << symbol;
         EntryList entryList = (EntryList)_lib.resolve(symbol.toLocal8Bit().data());
         if(entryList) {
             ModuleEntryList entries = entryList();
-            foreach(ModuleEntry entry, entries) {
-                switch(entry.first) {
-                    case StringType:
-                        _info << QString::fromLocal8Bit((const char*)entry.second);
-                        continue;
-
-                    case MetaObjectType:
-                    {
-                        const QMetaObject* metaObject = (const QMetaObject*)entry.second;
-                        _plugins.insert(metaObject->className(), metaObject);
-                        continue;
-                    }
-
-                    default:
-                        throw QString("Unknown entry type `%1`").arg(entry.first);
-
-                }
-
-                processInfoStrings(flags);
-                qDebug() << "Plugins detected" << _plugins.keys();
-            }
+            if(_core)
+                _core->moduleEntries(this->pointer(), entries);
 
             return;
         }

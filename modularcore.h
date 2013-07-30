@@ -39,10 +39,12 @@ protected:
     inline void registerType(QString type, QString path, QString depNode =QString()) {_types.insert(type, TypeInfo(path, depNode));}
 
     // Module Events
-    virtual void moduleVerify(Module::Ref) {}
-    virtual void moduleLoaded(Module::Ref) {}
-    virtual void moduleUnloaded(Module::Ref) {}
-    virtual void moduleInformation(Module::Ref) {}
+    virtual void moduleVerify(const Module::Ref) {}
+    virtual void moduleLoaded(const Module::Ref) {}
+    virtual void moduleUnloaded(const Module::Ref) {}
+    virtual void moduleInformation(const Module::Ref) {}
+    virtual void moduleEntries(const Module::Ref, const ModuleEntryList &);
+
     virtual Module::List moduleMetaData(QVariantMap) {return Module::List();}
 
     // The name of the modules this core works with

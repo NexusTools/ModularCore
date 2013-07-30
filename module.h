@@ -41,6 +41,7 @@ public:
         NoVerify = 0x0,
         LooseVerify = 0x1,
         StrictVerify = 0x2,
+
         ExportSymbols = 0x4,
         IgnoreLibraryName = 0x8
     };
@@ -72,6 +73,8 @@ public:
     inline ModularCore* core() const{return _core;}
     inline QVariantMap metaData() const{return _meta;}
     inline QString libraryFile() const{return _lib.fileName();}
+
+    inline Ref pointer() const{return _self.toStrongRef();}
 
     void unload();
     void load(LoadFlags flags = LooseVerify);
@@ -138,29 +141,43 @@ protected:
     void loadDep(QString name, QString type);
     void loadEntryPoints(LoadFlags flags = LooseVerify);
     void processInfoStrings(LoadFlags flags);
+    void processEntries(const ModuleEntryList&);
 
     QObject *createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
 
 private:
-    inline explicit Module(QString name, QString type, QString libraryFile, ModularCore* core) :
+    inline explicit Module(QString name, QString type, List deps, QString libraryFile, ModularCore* core) :
         _name(name), _type(type), _entryBaseName(QString("ModuleEntryPoint_%1_%2_").arg(type, name)),
-        _branch("unknown"), _lib(libraryFile) {*_versionParts=0;_core=core;}
+        _strong(this), _branch("unknown"), _deps(deps), _self(_strong.toWeakRef()), _lib(libraryFile), _core(core) {*_versionParts=0;}
+
+    inline static Module::Ref create(QString name, QString type, List deps, QString libraryFile, ModularCore* core) {
+        Module::Ref ref = (new Module(name, type, deps, libraryFile, core))->pointer();
+        ref->_strong.clear();
+        return ref;
+    }
+
+    inline static Module::Ref create(QString name, QString type, QString libraryFile, ModularCore* core) {
+        return create(name, type, List(), libraryFile, core);
+    }
 
     const QString _name;
     const QString _type;
     const QString _entryBaseName;
 
+    Ref _strong;
     QStringList _info;
     AuthorList _authorList;
     quint16 _versionParts[3];
+    LoadFlags _loadFlags;
     QString _branch;
 
-    List _deps;
-    Weak _self;
-    QVariantMap _meta;
-    ModularCore* _core;
-    PluginMap _plugins;
+    const List _deps;
+    const Weak _self;
+
     QLibrary _lib;
+    QVariantMap _meta;
+    PluginMap _plugins;
+    ModularCore* _core;
 };
 
 #endif // MODULE_H
