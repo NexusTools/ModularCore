@@ -335,7 +335,39 @@ void Module::processInfoStrings(LoadFlags flags) {
 void Module::processEntries(const ModuleEntryList &entries) {
     qDebug() << "Processing module entries...";
 
+    if(entries.isEmpty())
+        throw "No entries found...";
+
+    bool foundQtLibVersion = false;
+    bool foundVerifyString = false;
+
     foreach(ModuleEntry entry, entries) {
+        if(!foundQtLibVersion) {
+            if(entry.first == QtVersionType) {
+                if(foundQtLibVersion)
+                    throw "QtVersion declared multiple times.";
+
+                if((quintptr)entry.second != (quintptr)QT_VERSION)
+                    throw QString("Qt version mismatch. Library built against 0x%1, but this application uses 0x%2.").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
+
+                foundQtLibVersion = true;
+            } else if(entry.first == VerifyStringType) {
+                if(foundQtLibVersion)
+                    throw "Verifcation string must appear before Qt Version in entry list.";
+
+#ifdef MODULE_VERIFY_STRING
+                if(strcmp(MODULE_VERIFY_STRING, (const char*)entry.second) != 0)
+                    throw "Verification string mismatch.";
+
+                foundVerifyString = true;
+#else
+                throw "Module provides a verification string, but this application was not built with one.";
+#endif
+            } else
+                throw "Expected verification string or QT Version entry.";
+            continue;
+        }
+
         switch(entry.first) {
             case InfoStringType:
                 _info << QString::fromLocal8Bit((const char*)entry.second);
@@ -347,6 +379,22 @@ void Module::processEntries(const ModuleEntryList &entries) {
                 _plugins.insert(metaObject->className(), metaObject);
                 continue;
             }
+
+            case VerifyStringType:
+                if(foundVerifyString)
+                    throw "Only one verification string is allowed per module.";
+                if(foundQtLibVersion)
+                    throw "Verification String must appear before Qt Version in entry list.";
+                else
+                    throw "Verification string must appear first in the entry list.";
+
+            case QtVersionType:
+                if(foundQtLibVersion)
+                    throw "Only one Qt Version entry is allowed per module.";
+                if(foundVerifyString)
+                    throw "Qt Version must appear immidiately after the .";
+                else
+                    throw "Qt Version must be first in the entry list, unless a verification string entry exists.";
 
             case DataEntryType:
             {

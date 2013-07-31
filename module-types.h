@@ -11,7 +11,10 @@ enum ModuleEntryType {
 
     VerifyStringType = 0x5,
     FunctionPointerType = 0x6,
-    DataEntryType = 0x8
+    ObjectInstanceType = 0x7,
+    DataEntryType = 0x8,
+
+    QtVersionType = 0xff
 };
 
 typedef QPair<ModuleEntryType, const void*> ModuleEntry;

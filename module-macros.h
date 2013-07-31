@@ -5,7 +5,7 @@
 #include "module-types.h"
 
 #ifndef MODULE_LIB_NAME
-#warning "MODULE_LIB_NAME is not defined, using GenericLibrary"
+#warning "MODULE_LIB_NAME is not defined, using 'GenericLibrary'"
 #define MODULE_LIB_NAME "GenericLibrary"
 #endif
 
@@ -18,12 +18,23 @@
 #define ModuleString(String, Type) ModuleEntry(Type##StringType, (const void*)String)
 #define ModuleMetaObject(MetaObject) ModuleEntry(MetaObjectType, (const void*)MetaObject)
 
-#define DeclareString(String) << ModuleString(String, Info)
+#define DeclareModuleString(String, Type) << ModuleString(String, Type)
+#define DeclareInfoString(String) DeclareModuleString(String, Info)
 #define DeclarePlugin(Plugin) << ModuleMetaObject(&Plugin::staticMetaObject)
+#define DeclareObjectInstance(Instance) << ModuleEntry(ObjectInstanceType, (const void*)Instance)
 #define DeclareData(Type, ID, Data) << ModuleEntry(DataEntryType, ModuleDataEntry<Type, ID>(Data))
 
+#ifdef MODULE_VERIFY_STRING
+#define __DeclareVerification() DeclareModuleString(MODULE_VERIFY_STRING, Verify)
+#else
+#define __DeclareVerification() /* No Verification String */
+#endif
+#define __DeclareQtVersion() << ModuleEntry(QtVersionType, (const void*)QT_VERSION)
+
 #define BeginModuleNamespace(Class, Type) \
-    extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Class##_EntryList() {static ModuleEntryList entries(ModuleEntryList() DeclareString(MODULE_LIB_NAME) DeclareString(VERSION) DeclareString(AUTHORS) DeclareString("Unknown") DeclareString("Unknown")
+    extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Class##_EntryList() \
+{static ModuleEntryList entries(ModuleEntryList() __DeclareVerification() __DeclareQtVersion() DeclareInfoString(MODULE_LIB_NAME) \
+            DeclareInfoString(VERSION) DeclareInfoString(AUTHORS) DeclareInfoString("Unknown") DeclareInfoString("Unknown")
 
 #define BeginModule(Class, Type) BeginModuleNamespace(Class, Type) DeclarePlugin(Class)
 #define FinishModule() ); return entries;}
