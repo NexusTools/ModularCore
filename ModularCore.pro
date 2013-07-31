@@ -16,6 +16,8 @@ TEMPLATE = lib
 
 DEFINES += MODULARCORE_LIBRARY
 
+# Versioning
+VER_MIN = 2
 include(version.pri)
 
 CONFIG(debug, debug|release): DEFINES += IDE_MODE DEBUG_MODE

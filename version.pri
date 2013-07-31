@@ -23,6 +23,7 @@ GIT_VERSION = $$system("bash -c \"git --version\"")
 
 		!isEmpty(GIT_REVISION) {
 			DEFINES += $$quote(GIT_REVISION=\'\"$$GIT_REVISION\"\')
+			DEFINES += $$quote(RAW_GIT_REVISION=\'$$GIT_REVISION\')
 			VER_PAT = $$GIT_REVISION
 		}
 	} else {
@@ -37,3 +38,5 @@ isEmpty(VER_MIN): VER_MIN = 1
 
 DEFINES += $$quote(VER_MAJ=\'\"$$VER_MAJ\"\')
 DEFINES += $$quote(VER_MIN=\'\"$$VER_MIN\"\')
+DEFINES += $$quote(RAW_VER_MAJ=\'$$VER_MAJ\')
+DEFINES += $$quote(RAW_VER_MIN=\'$$VER_MIN\')

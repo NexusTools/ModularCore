@@ -28,6 +28,8 @@ public:
         return _modules.value(type).value(name).toStrongRef();
     }
 
+    static const Module::Version coreVersion();
+
 protected:
     explicit ModularCore() : _infoKeys(QStringList() << "AppName" << "Version" << "Authors" << "Website" << "Source") {}
 

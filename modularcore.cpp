@@ -11,6 +11,28 @@
 
 #include <QDebug>
 
+const Module::Version ModularCore::coreVersion() {
+    return (Module::Version){(quint8)RAW_VER_MAJ, (quint8)RAW_VER_MIN,
+#ifdef RAW_GIT_REVISION
+                (quint32)RAW_GIT_REVISION
+#else
+                (quint32)0
+#endif
+            , QString(
+#ifdef GIT_BRANCH
+                GIT_BRANCH
+#else
+                "unknown"
+#endif
+                ), QString(
+#ifdef GIT_SOURCE
+                GIT_SOURCE
+#else
+                "unknown"
+#endif
+                )};
+}
+
 QVariant nodeToVariant(QDomNode el) {
     if(el.hasAttributes() || el.hasChildNodes()) {
         QVariantMap map;
@@ -271,13 +293,14 @@ void Module::processInfoStrings(LoadFlags flags) {
     qDebug() << "Parsing information strings...";
     static QRegExp versionReg("(\\d+)\\.(\\d+)(\\.(\\d+))?( \\((.+)\\))?");
     if(versionReg.exactMatch(version())) {
-        _versionParts[0] = versionReg.cap(1).toInt();
-        _versionParts[1] = versionReg.cap(2).toInt();
+        _version.major = versionReg.cap(1).toInt();
+        _version.minor = versionReg.cap(2).toInt();
         if(!versionReg.cap(4).isEmpty())
-            _versionParts[2] = versionReg.cap(4).toInt();
+            _version.revision = versionReg.cap(4).toInt();
         if(!versionReg.cap(6).isEmpty())
-            _branch = versionReg.cap(6);
+            _version.branch = versionReg.cap(6);
     }
+    _version.source = _info.at(4);
 
     qDebug() << authorsString();
     QHash<QString, AuthorRef> _authors;
