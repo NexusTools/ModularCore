@@ -17,7 +17,6 @@ typedef QList<const QMetaObject*> ConstructorList;
 
 class Module
 {
-
     struct Version {
         quint8 major;
         quint8 minor;
@@ -48,6 +47,13 @@ public:
         QStringList altNames;
     };
 
+    enum PluginResolveFlag {
+        ResolveSelf = 0x1,
+        ResolveDependancies = 0x2,
+        ResolveExtensions = 0x4
+    };
+    Q_DECLARE_FLAGS(PluginResolveScope, PluginResolveFlag)
+
     typedef QSharedPointer<Author> AuthorRef;
     typedef QList<AuthorRef> AuthorList;
 
@@ -70,6 +76,8 @@ public:
 
     typedef QList<Weak> WeakList;
     typedef QList<Ref> List;
+
+    virtual ~Module() {qDebug() << "Module unloaded" << _type << _name;}
 
     inline QString name() const{return _name;}
     inline QString type() const{return _type;}
@@ -108,13 +116,10 @@ public:
     template <class T>
     bool isPluginCompatible(const QMetaObject* pluginMeta) {
         const QMetaObject* superMeta = pluginMeta;
-        qDebug() << "Checking compatibility" << pluginMeta->className();
         while(superMeta != &T::staticMetaObject) {
             superMeta = superMeta->superClass();
             if(!superMeta)
                 break;
-
-            qDebug() << "Checking super class" << superMeta->className();
         }
 
         return superMeta;
@@ -126,30 +131,81 @@ public:
     }
 
     template <class T>
-    const QMetaObject* findCompatiblePlugin() {
+    const QMetaObject* findCompatiblePlugin(PluginResolveScope scope =ResolveSelf) {
         qDebug() << "Searching for plugin compatible with" << T::staticMetaObject.className();
-        foreach(const QMetaObject* pluginMeta, _plugins.values()) {
-            if(isPluginCompatible<T>(pluginMeta))
-                return pluginMeta;
+
+        if(scope.testFlag(ResolveSelf))
+            foreach(const QMetaObject* pluginMeta, _plugins.values()) {
+                if(isPluginCompatible<T>(pluginMeta))
+                    return pluginMeta;
+            }
+
+        if(scope.testFlag(ResolveDependancies))
+            foreach(Module::Ref dep, _deps)
+                foreach(const QMetaObject* pluginMeta, dep->_plugins.values())
+                    if(isPluginCompatible<T>(pluginMeta))
+                        return pluginMeta;
+
+        if(scope.testFlag(ResolveExtensions))
+            foreach(Module::Ref ext, _extensions)
+                foreach(const QMetaObject* pluginMeta, ext->_plugins.values())
+                    if(isPluginCompatible<T>(pluginMeta))
+                        return pluginMeta;
+
+        return 0;
+    }
+
+    template <class T>
+    QList<const QMetaObject*> findCompatiblePlugins(PluginResolveScope scope =ResolveSelf) {
+        qDebug() << "Searching for plugins compatible with" << T::staticMetaObject.className();
+        QList<const QMetaObject*> _foundPlugins;
+
+        if(scope.testFlag(ResolveSelf))
+            foreach(const QMetaObject* pluginMeta, _plugins.values())
+                if(isPluginCompatible<T>(pluginMeta))
+                    _foundPlugins << pluginMeta;
+
+        if(scope.testFlag(ResolveDependancies))
+            foreach(Module::Ref dep, _deps)
+                foreach(const QMetaObject* pluginMeta, dep->_plugins.values())
+                    if(isPluginCompatible<T>(pluginMeta))
+                        _foundPlugins << pluginMeta;
+
+        if(scope.testFlag(ResolveExtensions))
+            foreach(Module::Ref ext, _extensions)
+                foreach(const QMetaObject* pluginMeta, ext->_plugins.values())
+                    if(isPluginCompatible<T>(pluginMeta))
+                        _foundPlugins << pluginMeta;
+
+        return _foundPlugins;
+    }
+
+    template <class T>
+    T* createCompatiblePlugin(QVariantList args =QVariantList(), PluginResolveScope scope =ResolveSelf) {
+        const QMetaObject* pluginMetaObject = findCompatiblePlugin<T>(scope);
+        if(pluginMetaObject) {
+            QObject* instance = createInstance(pluginMetaObject, args);
+            if(instance) {
+                Q_ASSERT(T::staticMetaObject.cast(instance));
+                return (T*)instance;
+            }
         }
         return 0;
     }
 
     template <class T>
-    T* createCompatiblePlugin(QVariantList args =QVariantList()) {
-        const QMetaObject* pluginMetaObject = findCompatiblePlugin<T>();
-        if(pluginMetaObject) {
-            QObject* instance = createInstance(pluginMetaObject, args);
-            if(instance) {
-                T* cInstance = (T*)T::staticMetaObject.cast(instance);
-                if(!cInstance) {
-                    delete instance;
-                    throw QString("%1 cannot be cast to %2").arg(pluginMetaObject->className()).arg(T::staticMetaObject.className());
+    QList<T*> createCompatiblePlugins(QVariantList args =QVariantList(), PluginResolveScope scope =ResolveSelf) {
+        QList<T*> objects;
+        foreach(const QMetaObject* pluginMetaObject, findCompatiblePlugins<T>(scope))
+            if(pluginMetaObject) {
+                QObject* instance = createInstance(pluginMetaObject, args);
+                if(instance) {
+                    Q_ASSERT(T::staticMetaObject.cast(instance));
+                    objects << (T*)instance;
                 }
-                return cInstance;
             }
-        }
-        return 0;
+
+        return objects;
     }
 
 protected:
@@ -192,6 +248,7 @@ private:
     QVariantMap _meta;
     PluginMap _plugins;
     ModularCore* _core;
+    List _extensions;
     DataMap _data;
 };
 
