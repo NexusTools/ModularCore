@@ -280,11 +280,11 @@ void Module::unload() {
 
 void Module::processInfoStrings(LoadFlags flags) {
     qDebug() << _info;
-    if(flags.testFlag(LooseVerify) |
-            flags.testFlag(StrictVerify)) {
-        qDebug() << "Verifying information strings...";
+    if((flags.testFlag(LooseVerify) && !_info.isEmpty()) |
+                            flags.testFlag(StrictVerify)) {
         if(_info.isEmpty())
-            throw "Information entry point returned no data.";
+            throw "No information strings provided but are required for strict verification.";
+
         if(_core) {
             if(!flags.testFlag(IgnoreLibraryName) &&
                     _info.first() != _core->libraryName())
@@ -425,6 +425,7 @@ void Module::processEntries(const ModuleEntryList &entries) {
             }
 
             case VerifyStringType:
+            case GenericVerifyStringType:
                 if(foundVerifyString)
                     throw "Only one verification string is allowed per module.";
                 if(foundQtLibVersion)
@@ -439,6 +440,10 @@ void Module::processEntries(const ModuleEntryList &entries) {
                     throw "Qt Version must appear immidiately after the .";
                 else
                     throw "Qt Version must be first in the entry list, unless a verification string entry exists.";
+
+            case QtPackageTagStringType:
+            case QtPackageDateStringType:
+                continue; // Not used
 
             case DataEntryType:
             {
@@ -459,8 +464,10 @@ void Module::processEntries(const ModuleEntryList &entries) {
     }
 
     processInfoStrings(_loadFlags);
-    qDebug() << "Data detected" << _data;
-    qDebug() << "Plugins detected" << _plugins.keys();
+    if(!_data.isEmpty())
+        qDebug() << "Data detected" << _data;
+    if(!_plugins.isEmpty())
+        qDebug() << "Plugins detected" << _plugins.keys();
 }
 
 void ModularCore::moduleEntries(const Module::Ref module, const ModuleEntryList &entries) {
