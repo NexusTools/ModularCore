@@ -64,7 +64,8 @@ public:
 
         ExportSymbols = 0x4,
         IgnoreLibraryName = 0x8,
-        LazyLoadSymbols = 0x10
+        LazyLoadSymbols = 0x10,
+        AllowGenericLibs = 0x20
     };
     Q_DECLARE_FLAGS(LoadFlags, LoadFlag)
 

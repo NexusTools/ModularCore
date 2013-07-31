@@ -30,4 +30,6 @@ HEADERS += modularcore.h \
     module.h \
     moduleplugin.h \
     module-macros.h \
-    module-types.h
+    module-types.h \
+    module-defines.h \
+    __macros.h

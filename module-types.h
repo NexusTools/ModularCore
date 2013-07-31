@@ -8,12 +8,15 @@
 enum ModuleEntryType {
     InfoStringType = 0x0,
     MetaObjectType = 0x1,
+    GenericVerifyStringType = 0x2,
 
     VerifyStringType = 0x5,
     FunctionPointerType = 0x6,
     ObjectInstanceType = 0x7,
     DataEntryType = 0x8,
 
+    QtPackageTagStringType = 0xf0,
+    QtPackageDateStringType = 0xf1,
     QtVersionType = 0xff
 };
 

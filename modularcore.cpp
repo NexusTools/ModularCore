@@ -1,5 +1,6 @@
 #include "modularcore.h"
 #include "moduleplugin.h"
+#include "module-defines.h"
 #include "module.h"
 
 #ifndef LEGACY_QT
@@ -368,6 +369,21 @@ void Module::processEntries(const ModuleEntryList &entries) {
                         throw QString("Qt Version Incompatible. Module uses a newer Qt Version (0x%1) than this application (0x%2).").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
 
                     foundQtLibVersion = true;
+                    continue;
+                }
+
+                case GenericVerifyStringType:
+                {
+                    if(_loadFlags.testFlag(StrictVerify) && !_loadFlags.testFlag(AllowGenericLibs))
+                        throw "Cannot load a generic library in strict verification mode, without the AllowGenericLibs flag.";
+
+                    if(foundQtLibVersion)
+                        throw "Verifcation string must appear before Qt Version in entry list.";
+
+                    if(strcmp((const char*)entry.second, __MODULE_GENERIC_VERIFICATION_STRING) != 0)
+                        throw "Generic Library verification string mismatch.";
+
+                    foundVerifyString = true;
                     continue;
                 }
 
