@@ -57,7 +57,8 @@ public:
         StrictVerify = 0x2,
 
         ExportSymbols = 0x4,
-        IgnoreLibraryName = 0x8
+        IgnoreLibraryName = 0x8,
+        LazyLoadSymbols = 0x10
     };
     Q_DECLARE_FLAGS(LoadFlags, LoadFlag)
 

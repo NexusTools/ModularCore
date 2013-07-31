@@ -122,7 +122,6 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
         module = _knownModules.value(libPath).toStrongRef();
         if(!module) {
             qDebug() << "Loading" << type << name;
-            qDebug() << libPath;
 
             QFile library(libPath);
             if(library.open(QFile::ReadOnly)) {
@@ -228,6 +227,8 @@ ModulePlugin* Module::createPlugin(QString type, QVariantList args) {
 
 void Module::load(LoadFlags flags) {
     QLibrary::LoadHints hints;
+    if(!flags.testFlag(LazyLoadSymbols))
+        hints |= QLibrary::ResolveAllSymbolsHint;
     if(flags.testFlag(ExportSymbols))
         hints |= QLibrary::ExportExternalSymbolsHint;
 
@@ -238,15 +239,22 @@ void Module::load(LoadFlags flags) {
         unload();
     }
 
+    qDebug() << libraryFile();
     _lib.setLoadHints(hints);
     if(!_lib.load()) {
 #ifdef Q_OS_UNIX
-        static QRegExp missingDep("Cannot load library .+: \\((.+): cannot open shared object file: (.+)\\)\\s*");
+        static QRegExp missingDep("Cannot load library .+: \\((.+): (.+): (.+)\\)\\s*");
         if(missingDep.exactMatch(_lib.errorString())) {
-            if(missingDep.cap(2) == "No such file or directory")
-                throw QString("Required library `%1` missing, install it and try again.").arg(missingDep.cap(1));
-            else
-                throw QString("Dependancy failed to load: `%1`: %2.").arg(missingDep.cap(1)).arg(missingDep.cap(2));
+            if(missingDep.cap(2) == "undefined symbol")
+                throw QString("Symbol `%1` could not be resolved, `%2` may be a different version than what this module was compiled against.").arg(missingDep.cap(3)).arg(missingDep.cap(1));
+            else if(missingDep.cap(2) == "cannot open shared object file") {
+                if(missingDep.cap(3) == "No such file or directory")
+                    throw QString("Required library `%1` missing, install it and try again.").arg(missingDep.cap(1));
+                else
+                    throw QString("Dependancy failed to load: `%1`: %2.").arg(missingDep.cap(1)).arg(missingDep.cap(3));
+            } else
+                    throw QString("%1 (%2): %3.").arg(missingDep.cap(2)).arg(missingDep.cap(3)).arg(missingDep.cap(1));
+
         }
 #endif
         throw _lib.errorString();
@@ -510,7 +518,6 @@ QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args
     qDebug() << "Constructing" << metaObject->className() << args;
     QObject* obj = metaObject->newInstance(val[0], val[1], val[2], val[3], val[4],
                                             val[5], val[6], val[7], val[8], val[9]);
-    qDebug() << obj;
     if(obj) {
         ModulePlugin* plugin = (ModulePlugin*)ModulePlugin::staticMetaObject.cast(obj);
         if(!plugin) {
