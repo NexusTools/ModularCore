@@ -347,8 +347,11 @@ void Module::processEntries(const ModuleEntryList &entries) {
                 if(foundQtLibVersion)
                     throw "QtVersion declared multiple times.";
 
-                if((quintptr)entry.second != (quintptr)QT_VERSION)
-                    throw QString("Qt version mismatch. Library built against 0x%1, but this application uses 0x%2.").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
+                if(((quintptr)entry.second ^ 0x00ffff) != ((quintptr)QT_VERSION ^ 0x00ffff))
+                    throw QString("Qt Version Mismatch. Library built against 0x%1, but this application uses 0x%2.").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
+
+                if(((quintptr)entry.second & 0x00ffff) > ((quintptr)QT_VERSION & 0x00ffff))
+                    throw QString("Qt Version Incompatible. Module uses a newer Qt Version (0x%1) than this application (0x%2).").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
 
                 foundQtLibVersion = true;
             } else if(entry.first == VerifyStringType) {
