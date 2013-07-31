@@ -154,8 +154,8 @@ public:
 protected:
     void loadDep(QString name, QString type);
     void loadEntryPoints(LoadFlags flags = LooseVerify);
-    void processInfoStrings(LoadFlags flags);
     void processEntries(const ModuleEntryList&);
+    void processInfoStrings(LoadFlags flags);
 
     QObject *createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
 

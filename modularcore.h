@@ -51,6 +51,7 @@ protected:
 
     // The name of the modules this core works with
     virtual QString libraryName() const{return "GenericModule";}
+    virtual const char* verificationString() const{return 0;}
 
 private:
     Types _types;

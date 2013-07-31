@@ -340,34 +340,51 @@ void Module::processEntries(const ModuleEntryList &entries) {
 
     bool foundQtLibVersion = false;
     bool foundVerifyString = false;
+    const char* verifyString = _core ? _core->verificationString() : 0;
 
     foreach(ModuleEntry entry, entries) {
         if(!foundQtLibVersion) {
-            if(entry.first == QtVersionType) {
-                if(foundQtLibVersion)
-                    throw "QtVersion declared multiple times.";
+            switch(entry.first) {
+                case QtVersionType:
+                {
+                    if(!foundVerifyString && verifyString && _loadFlags.testFlag(StrictVerify))
+                        throw "Verification string required but module does not supply one.";
 
-                if(((quintptr)entry.second ^ 0x00ffff) != ((quintptr)QT_VERSION ^ 0x00ffff))
-                    throw QString("Qt Version Mismatch. Library built against 0x%1, but this application uses 0x%2.").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
+                    if(foundQtLibVersion)
+                        throw "QtVersion declared multiple times.";
 
-                if(((quintptr)entry.second & 0x00ffff) > ((quintptr)QT_VERSION & 0x00ffff))
-                    throw QString("Qt Version Incompatible. Module uses a newer Qt Version (0x%1) than this application (0x%2).").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
+                    if(((quintptr)entry.second ^ 0x00ffff) != ((quintptr)QT_VERSION ^ 0x00ffff))
+                        throw QString("Qt Version Mismatch. Library built against 0x%1, but this application uses 0x%2.").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
 
-                foundQtLibVersion = true;
-            } else if(entry.first == VerifyStringType) {
-                if(foundQtLibVersion)
-                    throw "Verifcation string must appear before Qt Version in entry list.";
+                    if(((quintptr)entry.second & 0x00ffff) > ((quintptr)QT_VERSION & 0x00ffff))
+                        throw QString("Qt Version Incompatible. Module uses a newer Qt Version (0x%1) than this application (0x%2).").arg((quintptr)entry.second, 1, 16).arg((quintptr)QT_VERSION, 1, 16);
 
-#ifdef MODULE_VERIFY_STRING
-                if(strcmp(MODULE_VERIFY_STRING, (const char*)entry.second) != 0)
-                    throw "Verification string mismatch.";
+                    foundQtLibVersion = true;
+                    continue;
+                }
 
-                foundVerifyString = true;
-#else
-                throw "Module provides a verification string, but this application was not built with one.";
-#endif
-            } else
-                throw "Expected verification string or QT Version entry.";
+                case VerifyStringType:
+                {
+                    if(foundQtLibVersion)
+                        throw "Verifcation string must appear before Qt Version in entry list.";
+
+                    if(verifyString) {
+                        if(strcmp(verifyString, (const char*)entry.second) != 0)
+                            throw "Verification string mismatch.";
+
+                        foundVerifyString = true;
+                        continue;
+                    } else
+                        throw "Module provides a verification string, but this application was not built with one.";
+
+                }
+
+                default:
+                {
+                    throw "Expected verification string or QT Version entry.";
+                }
+            }
+
             continue;
         }
 
