@@ -108,22 +108,15 @@ public:
     // Plugins
     inline QStringList plugins() const{return _plugins.keys();}
 
-    ModulePlugin* createPlugin(QString type, QVariantList args =QVariantList());
+    inline ModulePlugin* createPlugin(QString type, QVariantList args =QVariantList()) {return createPluginInstance(plugin(type), args);}
     inline ModulePlugin* createPlugin(int type =0, QVariantList args =QVariantList()) {if(type < 0 || type >= _plugins.size()) throw "Invalid index, no such plugin"; return createPlugin(_plugins.keys().at(type), args);}
 
     inline const QMetaObject* plugin(int type =0) {if(type < 0 || type >= _plugins.size()) throw "Invalid index, no such plugin"; return plugin(_plugins.keys().at(type));}
-    const QMetaObject* plugin(QString type) {if(!_plugins.contains(type)) throw QString("No plugin registered is named `%1`").arg(type); return _plugins.value(type);}
+    inline const QMetaObject* plugin(QString type) {if(!_plugins.contains(type)) throw QString("No plugin registered named `%1`").arg(type); return _plugins.value(type);}
 
     template <class T>
     bool isPluginCompatible(const QMetaObject* pluginMeta) {
-        const QMetaObject* superMeta = pluginMeta;
-        while(superMeta != &T::staticMetaObject) {
-            superMeta = superMeta->superClass();
-            if(!superMeta)
-                break;
-        }
-
-        return superMeta;
+        return checkSubclass(pluginMeta, &T::staticMetaObject);
     }
 
     template <class T>
@@ -184,8 +177,14 @@ public:
     template <class T>
     T* createCompatiblePlugin(QVariantList args =QVariantList(), PluginResolveScope scope =ResolveSelf) {
         const QMetaObject* pluginMetaObject = findCompatiblePlugin<T>(scope);
+        bool pluginType = isModulePlugin(&T::staticMetaObject);
+
         if(pluginMetaObject) {
-            QObject* instance = createInstance(pluginMetaObject, args);
+            QObject* instance;
+            if(pluginType)
+                instance = (QObject*)createPluginInstance(pluginMetaObject, args);
+            else
+                instance = createInstance(pluginMetaObject, args);
             if(instance) {
                 Q_ASSERT(T::staticMetaObject.cast(instance));
                 return (T*)instance;
@@ -215,7 +214,10 @@ protected:
     void processEntries(const ModuleEntryList&);
     void processInfoStrings(LoadFlags flags);
 
+    bool checkSubclass(const QMetaObject*, const QMetaObject*);
+    bool isModulePlugin(const QMetaObject*);
     QObject *createInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
+    ModulePlugin *createPluginInstance(const QMetaObject* metaObject, QVariantList args =QVariantList());
 
 private:
     inline explicit Module(QString name, QString type, List deps, QString libraryFile, ModularCore* core) :

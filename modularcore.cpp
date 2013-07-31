@@ -218,14 +218,6 @@ Module::Ref ModularCore::loadModuleByDefinition(QVariantMap def) {
     return module;
 }
 
-ModulePlugin* Module::createPlugin(QString type, QVariantList args) {
-    const QMetaObject* p = plugin(type);
-    if(!isPluginCompatible<ModulePlugin>(p))
-        throw "Object is not a valid ModulePlugin";
-
-    return (ModulePlugin*)createInstance(p, args);
-}
-
 void Module::load(LoadFlags flags) {
     QLibrary::LoadHints hints;
     if(!flags.testFlag(LazyLoadSymbols))
@@ -527,6 +519,28 @@ void Module::loadEntryPoints(LoadFlags flags) {
         _core->moduleVerify(_self.toStrongRef());
 }
 
+bool Module::checkSubclass(const QMetaObject* pluginMeta, const QMetaObject* desiredMeta) {
+    const QMetaObject* superMeta = pluginMeta;
+    while(superMeta != desiredMeta) {
+        superMeta = superMeta->superClass();
+        if(!superMeta)
+            break;
+    }
+
+    return superMeta;
+}
+
+bool Module::isModulePlugin(const QMetaObject * pluginMeta) {
+    return checkSubclass(pluginMeta, &ModulePlugin::staticMetaObject);
+}
+
+ModulePlugin* Module::createPluginInstance(const QMetaObject* metaObject, QVariantList args) {
+    QObject* plugin = createInstance(metaObject, args);
+    Q_ASSERT(ModulePlugin::staticMetaObject.cast(plugin));
+    ((ModulePlugin*) plugin)->_provider = pointer();
+    return (ModulePlugin*) plugin;
+}
+
 QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args) {
     QGenericArgument val[10];
     if(args.size() > 9)
@@ -539,18 +553,8 @@ QObject* Module::createInstance(const QMetaObject* metaObject, QVariantList args
         throw "No invokable constructors.";
 
     qDebug() << "Constructing" << metaObject->className() << args;
-    QObject* obj = metaObject->newInstance(val[0], val[1], val[2], val[3], val[4],
-                                            val[5], val[6], val[7], val[8], val[9]);
-    if(obj) {
-        ModulePlugin* plugin = (ModulePlugin*)ModulePlugin::staticMetaObject.cast(obj);
-        if(!plugin) {
-            delete obj;
-            throw "Returned object is not a valid ModulePlugin";
-        }
-        plugin->_provider = _self.toStrongRef();
-        return plugin;
-    }
-    return 0;
+    return metaObject->newInstance(val[0], val[1], val[2], val[3], val[4],
+                                    val[5], val[6], val[7], val[8], val[9]);
 }
 
 Module::WeakMap ModularCore::_knownModules;

@@ -7,6 +7,8 @@
 
 class ModulePlugin : public QObject
 {
+    Q_OBJECT
+
     friend class Module;
 public:
     inline explicit ModulePlugin() {}
