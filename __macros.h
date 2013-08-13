@@ -19,14 +19,14 @@
 #endif
 
 #define MODULAR_CORE protected: \
-        inline QString libraryName() const{return MODULE_LIB_NAME;} \
+        virtual QString libraryName() const{return MODULE_LIB_NAME;} \
         __MODULE_VERIFICATION_STRING \
     \
     private:
 #endif
 
 #ifdef MODULE_VERIFY_STRING
-#define __MODULE_VERIFICATION_STRING inline const char* verificationString() const{return MODULE_VERIFY_STRING;}
+#define __MODULE_VERIFICATION_STRING virtual const char* verificationString() const{return MODULE_VERIFY_STRING;}
 #else
 #define __MODULE_VERIFICATION_STRING /* No Verification String */
 #endif
