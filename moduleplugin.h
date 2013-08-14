@@ -2,10 +2,10 @@
 #define MODULEPLUGIN_H
 
 #include <QObject>
-
+#include "global.h"
 #include "module.h"
 
-class ModulePlugin : public QObject
+class MODULARCORESHARED_EXPORT ModulePlugin : public QObject
 {
     Q_OBJECT
 

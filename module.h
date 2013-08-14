@@ -8,6 +8,7 @@
 #include <QDebug>
 #include <QHash>
 
+#include "global.h"
 #include "module-types.h"
 
 class ModularCore;
@@ -15,7 +16,7 @@ class ModulePlugin;
 
 typedef QList<const QMetaObject*> ConstructorList;
 
-class Module
+class MODULARCORESHARED_EXPORT Module
 {
     struct Version {
         quint8 major;
