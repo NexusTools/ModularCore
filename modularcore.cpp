@@ -98,23 +98,20 @@ Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, Type
                 if((pos = buffer.indexOf(QString("<%1>").arg(libraryName()))) > -1) {
                     qDebug() << "Found xml definition" << libraryName();
 
-                    bool ok;
-                    quint16 size;
-                    size = buffer.mid(pos-4, 4).toHex().toInt(&ok, 16);
-                    if(!ok)
-                        throw "MetaData size corrupt.";
-
-                    qDebug() << "Definition size" << size;
                     buffer = buffer.mid(pos);
-                    size -= buffer.length();
-                    while(size > 0) {
+                    QString endNode = QString("</%1>").arg(libraryName());
+                    forever {
                         if(library.atEnd())
-                            throw "EOF while parsing metadata.";
+                            throw "Unexpected End of File";
 
-                        QByteArray newData = library.read(size);
-                        size -= newData.length();
-                        buffer += newData;
+                        buffer += library.read(512);
+                        pos = buffer.indexOf(endNode);
+                        if(pos > 0) {
+                            buffer = buffer.mid(0, pos + endNode.length());
+                            break;
+                        }
                     }
+                    qDebug() << buffer;
 
                     int errCol;
                     int errLine;
@@ -152,12 +149,12 @@ Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, Type
             library.close();
 
             if(nameType.first.isEmpty()) {
-                nameType.first = metaData.value("name").toString();
+                nameType.first = metaData.value("Name").toString();
                 if(nameType.first.isEmpty())
                     throw "No name specified";
             }
             if(nameType.second.isEmpty()) {
-                nameType.second = metaData.value("type").toString();
+                nameType.second = metaData.value("Type").toString();
                 if(nameType.second.isEmpty())
                     throw "No type specified";
             }
