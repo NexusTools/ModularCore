@@ -80,6 +80,95 @@ QVariant nodeToVariant(QDomNode el) {
         return el.nodeValue();
 }
 
+Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, TypeInfo typeInfo) {
+    Module::Ref module = _knownModules.value(libPath).toStrongRef();
+    if(!module) {
+        QFile library(libPath);
+        if(library.open(QFile::ReadOnly)) {
+            QVariantMap metaData;
+            Module::List deps;
+
+            int pos;
+            QByteArray buffer;
+            qDebug() << "Reading module" << libPath;
+            while(!library.atEnd()) {
+                if(buffer.length() >= 200)
+                    buffer = buffer.mid(100);
+                buffer += library.read(100);
+                if((pos = buffer.indexOf(QString("<%1>").arg(libraryName()))) > -1) {
+                    qDebug() << "Found xml definition" << libraryName();
+
+                    bool ok;
+                    quint16 size;
+                    size = buffer.mid(pos-4, 4).toHex().toInt(&ok, 16);
+                    if(!ok)
+                        throw "MetaData size corrupt.";
+
+                    qDebug() << "Definition size" << size;
+                    buffer = buffer.mid(pos);
+                    size -= buffer.length();
+                    while(size > 0) {
+                        if(library.atEnd())
+                            throw "EOF while parsing metadata.";
+
+                        QByteArray newData = library.read(size);
+                        size -= newData.length();
+                        buffer += newData;
+                    }
+
+                    int errCol;
+                    int errLine;
+                    QString errMsg;
+                    QDomDocument dom;
+                    if(dom.setContent(buffer, &errMsg, &errLine, &errCol)) {
+                        QDomNodeList children = dom.childNodes();
+#ifdef LEGACY_QT
+                        for(uint i=0; i<children.length(); i++){
+#else
+                        for(int i=0; i<children.length(); i++){
+#endif
+                            QDomNode node = children.at(i);
+                            if(node.nodeName() == libraryName()) {
+                                metaData = nodeToVariant(node).toMap();
+                                qDebug() << metaData;
+
+                                if(!metaData.isEmpty()) {
+                                    qDebug() << metaData;
+                                    deps = moduleMetaData(metaData);
+                                    if(!typeInfo.second.isEmpty()) {
+                                        qDebug() << "Loading dependancies..." << typeInfo.second;
+                                        foreach(QVariant dep, metaData.value(typeInfo.second).toList())
+                                            deps << loadModuleByDefinition(dep.toMap());
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    } else
+                        throw QString("Error parsing definition: %1 at %2:%3").arg(errMsg).arg(errLine).arg(errCol);
+                    break;
+                }
+            }
+            library.close();
+
+            if(nameType.first.isEmpty()) {
+                nameType.first = metaData.value("name").toString();
+                if(nameType.first.isEmpty())
+                    throw "No name specified";
+            }
+            if(nameType.second.isEmpty()) {
+                nameType.second = metaData.value("type").toString();
+                if(nameType.second.isEmpty())
+                    throw "No type specified";
+            }
+            module = Module::create(nameType.first, nameType.second, deps, libPath, this);
+            moduleVerify(module);
+        }
+    }
+
+    return module;
+}
+
 Module::Ref ModularCore::loadModule(QString name, QString type) {
     TypeInfo typeInfo = _types.value(type);
     if(typeInfo.first.isEmpty())
@@ -120,73 +209,10 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
                 "dll";
 #endif
 
-        module = _knownModules.value(libPath).toStrongRef();
-        if(!module) {
-            qDebug() << "Loading" << type << name;
-
-            QFile library(libPath);
-            if(library.open(QFile::ReadOnly)) {
-                QVariantMap metaData;
-                Module::List deps;
-
-                int pos;
-                QByteArray buffer;
-                while(!library.atEnd()) {
-                    if(buffer.length() >= 200)
-                        buffer = buffer.mid(100);
-                    buffer += library.read(100);
-                    if((pos = buffer.indexOf(QString("<%1>").arg(libraryName()))) > -1) {
-                        bool ok;
-                        quint16 size;
-                        size = buffer.mid(pos-4, 4).toHex().toInt(&ok, 16);
-                        if(!ok)
-                            throw "MetaData size corrupt.";
-
-                        buffer = buffer.mid(pos);
-                        size -= buffer.length();
-                        while(size > 0) {
-                            if(library.atEnd())
-                                throw "EOF while parsing metadata.";
-
-                            QByteArray newData = library.read(size);
-                            size -= newData.length();
-                            buffer += newData;
-                        }
-
-                        QDomDocument dom;
-                        if(dom.setContent(buffer)) {
-                            QDomNodeList children = dom.childNodes();
-#ifdef LEGACY_QT
-                            for(uint i=0; i<children.length(); i++){
-#else
-                            for(int i=0; i<children.length(); i++){
-#endif
-                                QDomNode node = children.at(i);
-                                if(node.nodeName() == libraryName()) {
-                                    metaData = nodeToVariant(node).toMap();
-                                    if(!metaData.isEmpty()) {
-                                        qDebug() << metaData;
-                                        deps = moduleMetaData(metaData);
-                                        if(!typeInfo.second.isEmpty()) {
-                                            qDebug() << "Loading dependancies..." << typeInfo.second;
-                                            foreach(QVariant dep, metaData.value(typeInfo.second).toList())
-                                                deps << loadModuleByDefinition(dep.toMap());
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        break;
-                    }
-                }
-                library.close();
-
-                module = Module::create(name, type, deps, libPath, this);
-                moduleVerify(module);
-            } else
-                throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
-        }
+        qDebug() << "Loading" << type << name;
+        module = loadModule(libPath, typeInfo);
+        if(module.isNull())
+            throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
     }
 
     return module;

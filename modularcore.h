@@ -8,12 +8,13 @@
 
 class MODULARCORESHARED_EXPORT ModularCore
 {
+    friend class Module;
+public:
     typedef QHash<QString, Module::WeakMap> LoadedModules;
+    typedef QPair<QString, QString> NameTypePair;
     typedef QPair<QString, QString> TypeInfo;
     typedef QHash<QString, TypeInfo> Types;
 
-    friend class Module;
-public:
     Module::List modulesByType(QString type) {
         Module::List modules;
         foreach(Module::Weak mod, _modules.value(type).values()) {
@@ -34,6 +35,7 @@ protected:
     explicit ModularCore() : _infoKeys(QStringList() << "AppName" << "Version" << "Authors" << "Website" << "Source") {}
 
     // Module Controls
+    Module::Ref loadModule(QString file, NameTypePair nameType, TypeInfo typeInfo =TypeInfo());
     Module::Ref loadModule(QString name, QString type);
     Module::Ref loadModuleByDefinition(QVariantMap def);
     void unloadModule(QString name, QString type);
