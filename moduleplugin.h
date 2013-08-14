@@ -11,11 +11,18 @@ class MODULARCORESHARED_EXPORT ModulePlugin : public QObject
 
     friend class Module;
 public:
-    inline explicit ModulePlugin() {}
+    inline explicit ModulePlugin() {_core=0;}
 
-    inline Module::Ref provider() const{return _provider;}
+// Module Helpers
+    inline QString moduleName() const{return _provider->name();}
+    inline QString moduleType() const{return _provider->type();}
+    inline ModularCore* moduleCore() const{return _provider.isNull() ? _core : _provider->core();}
+    inline Module* module() const{return _provider.data();}
 
 protected:
+    inline explicit ModulePlugin(ModularCore* core) {_core=core;}
+
+// Plugin Helpers
     template <class T>
     inline T* createCompatiblePlugin(QVariantList args =QVariantList(), Module::PluginResolveScope scope =Module::ResolveDependancies) {
         if(!_provider)
@@ -33,6 +40,7 @@ protected:
     }
 
 private:
+    ModularCore* _core;
     Module::Ref _provider;
 };
 
