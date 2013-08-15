@@ -3,6 +3,7 @@
 #include "module-defines.h"
 #include "module.h"
 
+#include <QCoreApplication>
 #ifndef LEGACY_QT
 #include <QRegularExpression>
 #endif
@@ -78,6 +79,79 @@ QVariant nodeToVariant(QDomNode el) {
         return map;
     } else
         return el.nodeValue();
+}
+
+void ModularCore::registerType(QString type, QString path, QString depNode) {
+    if(_types.contains(type))
+        throw QString("Type `%1` already registered.").arg(type);
+
+    QString searchPath;
+    const char* prefix = searchPathPrefix();
+    if(prefix)
+        searchPath += prefix + '-';
+    searchPath += type;
+
+    path = QDir::toNativeSeparators(path);
+
+    QStringList paths;
+    QString pwd = QDir::toNativeSeparators(QDir::currentPath());
+    if(!pwd.endsWith(QDir::separator()))
+        pwd += QDir::separator();
+    paths << pwd;
+    pwd += path;
+    if(!pwd.endsWith(QDir::separator()))
+        pwd += QDir::separator();
+    paths << pwd;
+
+    pwd = QDir::toNativeSeparators(QDir("..").absolutePath());
+    if(!pwd.endsWith(QDir::separator()))
+        pwd += QDir::separator();
+    paths << pwd;
+    pwd += path;
+    if(!pwd.endsWith(QDir::separator()))
+        pwd += QDir::separator();
+    paths << pwd;
+
+    foreach(QString appName, searchAppNames()) {
+#ifdef Q_OS_UNIX
+    pwd = QString("/usr/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/opt/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/opt/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    appName = appName.toLower();
+
+    pwd = QString("/usr/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/opt/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/lib/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+
+    pwd = QString("/opt/%1/").arg(appName);
+    paths << pwd;
+    paths << pwd + path + '/';
+#endif
+}
+
+    QDir::setSearchPaths(searchPath, paths);
+    _types.insert(type, TypeInfo(path, depNode));
 }
 
 Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, TypeInfo typeInfo) {
@@ -168,6 +242,12 @@ Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, Type
     return module;
 }
 
+#ifdef Q_OS_UNIX
+#define LIB_SUFFIX "so"
+#else
+#define LIB_SUFFIX "dll"
+#endif
+
 Module::Ref ModularCore::loadModule(QString name, QString type) {
     TypeInfo typeInfo = _types.value(type);
     if(typeInfo.first.isEmpty())
@@ -175,43 +255,80 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
 
     Module::Ref module = _modules.value(type).value(name).toStrongRef();
     if(!module) {
-#ifdef IDE_MODE
-        static QString basePath = QFileInfo(QDir::currentPath()).dir().path() + '/';
-#endif
-        QString libPath =
-#ifdef IDE_MODE
-                basePath +
-#endif
-                typeInfo.first + '/' +
-#ifdef IDE_MODE
-                name + '/' +
-#ifdef Q_OS_WIN
-#ifdef DEBUG_MODE
-                "debug/" +
-#else
-                "release/" +
-#endif
-#else
-                "lib" +
-#endif
-#endif
-                name +
-#ifdef IDE_MODE
-#ifdef Q_OS_WIN
-                "0" +
-#endif
-#endif
-                '.' +
+        QString searchPath;
+        const char* prefix = searchPathPrefix();
+        if(prefix)
+            searchPath += prefix + '-';
+        searchPath += type;
+
+        qDebug() << "Searching for module" << name << type;
+
+        QStringList nameSearch;
+        nameSearch << name;
 #ifdef Q_OS_UNIX
-                "so";
+        nameSearch << name.toLower();
+        nameSearch << QString("lib%1").arg(name);
+        nameSearch << QString("lib%1").arg(name.toLower());
 #else
-                "dll";
+        for(int i=0; i<=255; i++)
+            nameSearch << QString("%1%2").arg(name).arg(i);
+#endif
+        QString dir = name + QDir::separator();
+        nameSearch << dir + name;
+#ifdef Q_OS_UNIX
+        nameSearch << dir + name.toLower();
+        nameSearch << dir + QString("lib%1").arg(name);
+        nameSearch << dir + QString("lib%1").arg(name.toLower());
+#else
+        for(int i=0; i<=255; i++)
+            nameSearch << dir + QString("%1%2").arg(name).arg(i);
 #endif
 
+        QString buildPath = name + QDir::separator();
+#ifdef Q_OS_WIN
+#ifdef DEBUG_MODE
+        buildPath += "debug\\";
+#else
+        buildPath += "release\\";
+#endif
+#endif
+        QFileInfo buildDir(QString("%1:%2").arg(searchPath).arg(buildPath));
+        qDebug() << "Searching for" << buildPath << "in" << QDir::searchPaths(searchPath);
+        QFileInfo moduleFile;
+        if(buildDir.isDir()) {
+            QString path = QDir::toNativeSeparators(buildDir.absolutePath());
+            if(!path.endsWith(QDir::separator()))
+                path += QDir::separator();
+            qDebug() << "Build directory found" << path;
+            qDebug() << "Searching for" << nameSearch;
+            foreach(QString libName, nameSearch) {
+                moduleFile.setFile(QString("%1%2." LIB_SUFFIX).arg(path).arg(libName));
+                if(!moduleFile.exists())
+                    continue;
+
+                qDebug() << "Found module" << moduleFile.absoluteFilePath();
+                break;
+            }
+        }
+
+        if(!moduleFile.exists())
+            foreach(QString libName, nameSearch) {
+                moduleFile.setFile(QString("%1:%2." LIB_SUFFIX).arg(searchPath).arg(libName));
+                if(!moduleFile.exists())
+                    continue;
+
+                qDebug() << "Found module" << moduleFile.absoluteFilePath();
+                break;
+            }
+
+        if(!moduleFile.exists())
+            throw "Cannot locate module";
+
         qDebug() << "Loading" << type << name;
-        module = loadModule(libPath, NameTypePair(name, type), typeInfo);
+        module = loadModule(moduleFile.absoluteFilePath(), NameTypePair(name, type), typeInfo);
         if(module.isNull())
-            throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
+            throw QString("Cannot read requested module `%1` of type `%2`.").arg(name).arg(type);
+
     }
 
     return module;

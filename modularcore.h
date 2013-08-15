@@ -40,7 +40,7 @@ protected:
     Module::Ref loadModuleByDefinition(QVariantMap def);
     void unloadModule(QString name, QString type);
 
-    inline void registerType(QString type, QString path, QString depNode =QString()) {_types.insert(type, TypeInfo(path, depNode));}
+    void registerType(QString type, QString path, QString depNode =QString());
 
     // Module Events
     virtual void moduleVerify(const Module::Ref) {}
@@ -54,6 +54,8 @@ protected:
     // The name of the modules this core works with
     virtual QString libraryName() const{return "GenericModule";}
     virtual const char* verificationString() const{return 0;}
+    virtual const char* searchPathPrefix() const{return 0;}
+    virtual QStringList searchAppNames() const{return QStringList() << "ModularCore";}
 
 private:
     Types _types;

@@ -18,8 +18,30 @@
 #define MODULE_LIB_NAME __MODULE_GENERIC_LIB_NAME
 #endif
 
+#include <QMetaObject>
+#include <QStringList>
+
+inline QStringList __app_Names_For_QMetaObject__(const QMetaObject* meta) {
+    QStringList appNames;
+    while(meta) {
+        if(QString(meta->className()).startsWith('Q'))
+            break; // Only check for non-Qt classes
+
+        appNames << meta->className();
+        meta = meta->superClass();
+    }
+
+    appNames << "ModularCore";
+    return appNames;
+}
+
 #define MODULAR_CORE protected: \
         virtual QString libraryName() const{return MODULE_LIB_NAME;} \
+        virtual QString searchPrefix() const{return staticMetaObject.className();} \
+        virtual QStringList searchAppNames() const{ \
+            static QStringList appNames(__app_Names_For_QMetaObject__(&staticMetaObject)); \
+            return appNames; \
+        } \
         __MODULE_VERIFICATION_STRING \
     \
     private:
