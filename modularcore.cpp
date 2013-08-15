@@ -83,6 +83,8 @@ QVariant nodeToVariant(QDomNode el) {
 Module::Ref ModularCore::loadModule(QString libPath, NameTypePair nameType, TypeInfo typeInfo) {
     Module::Ref module = _knownModules.value(libPath).toStrongRef();
     if(!module) {
+        qDebug() << "Parsing" << libPath;
+
         QFile library(libPath);
         if(library.open(QFile::ReadOnly)) {
             QVariantMap metaData;
@@ -207,7 +209,7 @@ Module::Ref ModularCore::loadModule(QString name, QString type) {
 #endif
 
         qDebug() << "Loading" << type << name;
-        module = loadModule(libPath, typeInfo);
+        module = loadModule(libPath, NameTypePair(name, type), typeInfo);
         if(module.isNull())
             throw QString("Cannot locate requested module `%1` of type `%2`.").arg(name).arg(type);
     }
@@ -460,6 +462,14 @@ void Module::processEntries(const ModuleEntryList &entries) {
             case QtPackageDateStringType:
                 continue; // Not used
 
+            case ObjectInstanceType:
+            {
+                QObject* obj = (QObject*)entry.second;
+                Q_ASSERT(obj);
+                _instances << obj;
+                continue;
+            }
+
             case DataEntryType:
             {
                 ModuleData* data = (ModuleData*)entry.second;
@@ -483,6 +493,8 @@ void Module::processEntries(const ModuleEntryList &entries) {
         qDebug() << "Data detected" << _data;
     if(!_plugins.isEmpty())
         qDebug() << "Plugins detected" << _plugins.keys();
+    if(!_instances.isEmpty())
+        qDebug() << "Instances detected" << _instances;
 }
 
 void ModularCore::moduleEntries(const Module::Ref module, const ModuleEntryList &entries) {

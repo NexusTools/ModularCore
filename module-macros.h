@@ -11,7 +11,7 @@
 #define DeclareModuleString(String, Type) << ModuleString(String, Type)
 #define DeclareInfoString(String) DeclareModuleString(String, Info)
 #define DeclarePlugin(Plugin) << ModuleMetaObject(&Plugin::staticMetaObject)
-#define DeclareObjectInstance(Instance) << ModuleEntry(ObjectInstanceType, (const void*)Instance)
+#define DeclareObjectInstance(Instance) << ModuleEntry(ObjectInstanceType, (const void*)static_cast<QObject*>(Instance))
 #define DeclareData(Type, ID, Data) << ModuleEntry(DataEntryType, ModuleDataEntry<Type, ID>(Data))
 
 #define DeclareModuleInternals() __ModuleVerificationEntry __ModuleQtVersionEntry __ModuleQtPackageTagEntry __ModuleQtPackageDateEntry

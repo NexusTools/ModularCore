@@ -31,6 +31,7 @@ class MODULARCORESHARED_EXPORT Module
     typedef QMap<QVariant::Type, DataIndexList> DataMap;
 
     typedef QHash<QString, const QMetaObject*> PluginMap;
+    typedef QList<QObject*> InstanceList;
 
     // Entry Points
     typedef ConstructorList (*Constructors)();
@@ -211,6 +212,66 @@ public:
         return objects;
     }
 
+    template <class T>
+    T* instance(PluginResolveScope scope =ResolveSelf) {
+        if(scope.testFlag(ResolveSelf))
+            foreach(QObject* obj, _instances) {
+                T* i = qobject_cast<T*>(obj);
+                if(i)
+                    return i;
+            }
+
+        if(scope.testFlag(ResolveDependancies))
+            foreach(Module::Ref dep, _deps)
+                foreach(QObject* obj, dep->_instances) {
+                    T* i = qobject_cast<T*>(obj);
+                    if(i)
+                        return i;
+                }
+
+        if(scope.testFlag(ResolveExtensions))
+            foreach(Module::Ref ext, _extensions)
+                foreach(QObject* obj, ext->_instances) {
+                    T* i = qobject_cast<T*>(obj);
+                    if(i)
+                        return i;
+                }
+
+
+        return 0;
+    }
+
+    template <class T>
+    QList<T*> instances(PluginResolveScope scope =ResolveSelf) {
+        QList<T*> instances;
+
+        if(scope.testFlag(ResolveSelf))
+            foreach(QObject* obj, _instances) {
+                T* i = qobject_cast<T*>(obj);
+                if(i)
+                    instances << i;
+            }
+
+        if(scope.testFlag(ResolveDependancies))
+            foreach(Module::Ref dep, _deps)
+                foreach(QObject* obj, dep->_instances) {
+                    T* i = qobject_cast<T*>(obj);
+                    if(i)
+                        instances << i;
+                }
+
+        if(scope.testFlag(ResolveExtensions))
+            foreach(Module::Ref ext, _extensions)
+                foreach(QObject* obj, ext->_instances) {
+                    T* i = qobject_cast<T*>(obj);
+                    if(i)
+                        instances << i;
+                }
+
+
+        return instances;
+    }
+
 protected:
     void loadDep(QString name, QString type);
     void loadEntryPoints(LoadFlags flags = LooseVerify);
@@ -253,6 +314,7 @@ private:
     QLibrary _lib;
     QVariantMap _meta;
     PluginMap _plugins;
+    InstanceList _instances;
     ModularCore* _core;
     List _extensions;
     DataMap _data;
