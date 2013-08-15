@@ -32,7 +32,7 @@ public:
     static const Module::Version coreVersion();
 
 protected:
-    explicit ModularCore() : _infoKeys(QStringList() << "AppName" << "Version" << "Authors" << "Website" << "Source") {}
+    inline explicit ModularCore() : _infoKeys(QStringList() << "AppName" << "Version" << "Authors" << "Website" << "Source" << "Type" << "Namespace") {}
 
     // Module Controls
     Module::Ref loadModule(QString file, NameTypePair nameType, TypeInfo typeInfo =TypeInfo());

@@ -18,9 +18,9 @@
 #define DeclareModuleInfoStrings() DeclareInfoString(MODULE_LIB_NAME) DeclareInfoString(VERSION) \
     DeclareInfoString(AUTHORS) DeclareInfoString("Unknown") DeclareInfoString("Unknown")
 
-#define BeginModuleNamespace(Class, Type) \
-    extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Class##_EntryList() \
-        {static ModuleEntryList entries(ModuleEntryList() DeclareModuleInternals() DeclareModuleInfoStrings()
+#define BeginModuleNamespace(Name, Type) \
+    extern "C" Q_DECL_EXPORT const ModuleEntryList ModuleEntryPoint_##Type##_##Name##_EntryList() \
+        {static ModuleEntryList entries(ModuleEntryList() DeclareModuleInternals() DeclareModuleInfoStrings() DeclareInfoString(#Type) DeclareInfoString(#Name)
 
 #define BeginModule(Class, Type) BeginModuleNamespace(Class, Type) DeclarePlugin(Class)
 #define FinishModule() ); return entries;}
