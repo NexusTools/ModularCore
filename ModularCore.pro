@@ -25,6 +25,8 @@ CONFIG(debug, debug|release): DEFINES += IDE_MODE DEBUG_MODE
 SOURCES += \
     modularcore.cpp
 
+OTHER_FILES += README.md LICENSE.md
+
 HEADERS += modularcore.h \
     global.h \
     module.h \
